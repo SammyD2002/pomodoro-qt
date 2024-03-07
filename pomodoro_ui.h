@@ -50,6 +50,7 @@ private:
     QTimer* loop_timer;
     PomodoroTimer* cycle;
     QLabel* clock;
+    QLabel* pc_status;
     std::string status[2];
     const QTime* ZERO_TIME = new QTime(0,0);
     //Actions for menus

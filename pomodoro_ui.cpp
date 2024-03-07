@@ -7,9 +7,12 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     this->main_timer = new QTimer(this);
     this->loop_timer = new QTimer(this);
     this->clock = new QLabel("");
+    this->pc_status = new QLabel("");
     layout = new QGridLayout(this);
-    layout->addWidget(toggle, 1, 0);
+    //layout->SetMinimumSize(2,2);
+    layout->addWidget(toggle, 1, 0, 1, 2);
     layout->addWidget(clock, 2, 0); //-1 should put this on the right side of the window.
+    layout->addWidget(pc_status, 2, 1);
 
     //Initialize the Pomodoro Cycle & set log_stdout and notify appropriatly.
     this->log_stdout = false;
@@ -29,7 +32,7 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     this->SetupMenus();
     //Main Window Context Menu
     this->top_bar = new QMenuBar(this);
-    //this->top_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    this->top_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     //this->layout->addWidget(top_bar, 0, 0);
     QMenu* timer = this->top_bar->addMenu("Timer");
     timer->addAction(this->tray_menu_items->at(1)); //Pause from tray menu
@@ -38,10 +41,14 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     timer->addSeparator();
     QAction* edit = new QAction(tr("&Edit Timer..."), this);
     timer->addAction(edit); //Edit Paramaters...
+    QMenu* windowMenu = this->top_bar->addMenu("Window");
+    windowMenu->addAction(this->tray_menu_items->at(0));
+    windowMenu->addAction(this->tray_menu_items->at(4));
     //QMenu presets = this->top_bar->addMenu("Presets");
     //QMenu window = this->top_bar->addMenu("Window");
     this->top_bar->setNativeMenuBar(true);
     this->layout->setMenuBar(this->top_bar);
+    //this->resize(layout::size);
 
     //Signal and Slot Connections
     connect(edit, &QAction::triggered, this, &PomodoroUI::start_config);
@@ -82,29 +89,34 @@ void PomodoroUI::connectConfigSignals(){
 void PomodoroUI::SetupMenus(){
     //The tray context menu
     QMenu* tray_actions = new QMenu(this);
+    //Toggle window [0]
     QAction* toggle_window = new QAction(tr("&Show Window"), this);
     connect(toggle_window, &QAction::triggered, this, &PomodoroUI::update_visible);
     this->tray_menu_items->append(toggle_window);
     tray_actions->addAction(toggle_window);
     tray_actions->addSeparator();
+    //Pause Timer [1]
     QAction* toggle_timer = new QAction(tr("&Pause Timer"), this);
     connect(toggle_timer, &QAction::triggered, this, &PomodoroUI::toggle_pressed);
     this->tray_menu_items->append(toggle_timer);
     tray_actions->addAction(toggle_timer);
+    //Restart Segment [2]
     QAction* segment_restart = new QAction(tr("&Restart Segment"), this);
     connect(segment_restart, &QAction::triggered, this->cycle, &PomodoroTimer::ResetSegment);
     this->tray_menu_items->append(segment_restart);
     tray_actions->addAction(segment_restart);
+    //Restart Session [3]
     QAction* session_restart = new QAction(tr("&Restart Session"), this);
     connect(session_restart, &QAction::triggered, this->cycle, &PomodoroTimer::initCycle);
     this->tray_menu_items->append(session_restart);
     tray_actions->addAction(session_restart);
     tray_actions->addSeparator();
+    //Exit Program [4]
     QAction* exit_program = new QAction(tr("&Exit"), this);
     connect(exit_program, &QAction::triggered, this, &PomodoroUI::quitting);
     this->tray_menu_items->append(exit_program);
     tray_actions->addAction(exit_program);
-    tray_actions->addActions(*(this->tray_menu_items));
+    //tray_actions->addActions(*(this->tray_menu_items));
     this->tray->setContextMenu(tray_actions);
     //Calling the destructor should quit the app.
     //connect(this, &PomodoroUI::quitting, this, &PomodoroUI::~PomodoroUI);
@@ -126,12 +138,7 @@ void PomodoroUI::toggled(bool paused){
         loop_timer->stop();
     }
     //Reset the tray icon tooltip appropriatly.
-    QString ttip = this->toggle->text();
-    ttip.append(QString::fromStdString("\nTime Left in Segment: "));
-    ttip.append(this->clock->text());
-    ttip.append(QString::fromStdString("\nCurrent Pomodoro: " + this->cycle->get_c_pom_str()));
-    ttip.append(QString::fromStdString("\nCycles Complete: " + this->cycle->get_c_cycle_str()));
-    this->tray->setToolTip(ttip);
+    this->UpdateTrayTooltip();
 
 }
 //Slots:
@@ -184,6 +191,7 @@ void PomodoroUI::update_segment(int status){
         this->status[0] = "Studying";
         this->status[1] = "[Paused] Studying";
         this->tray->setIcon(this->study_icon);
+        this->tray_menu_items->at(1)->setText("Pause Timer");
     }
     else if (status == 4){
         this->status[0] = this->status[1] = "Restart";
@@ -200,13 +208,13 @@ void PomodoroUI::update_segment(int status){
         this->tray->setIcon(this->breaktime_icon);
     }
     this->toggle->setText(QString::fromStdString(this->status[0]));
-    //this->UpdateTrayTooltip();
+    this->UpdateTrayTooltip();
 }
 void PomodoroUI::update_timer_display(){
     QTime remTime = ZERO_TIME->addMSecs((this->main_timer->remainingTime() / 1000) * 1000);
     if(this->log_stdout)
         std::cout << qPrintable(remTime.toString("hh:mm:ss")) << std::endl;
-    this->clock->setText(remTime.toString("hh:mm:ss"));
+    this->clock->setText(QString("Time Left in Segment:\n").append(remTime.toString("hh:mm:ss")));
     //Set the tooltip for the tray icon.
     this->UpdateTrayTooltip();
 }
@@ -220,10 +228,12 @@ void PomodoroUI::window_toggle(QSystemTrayIcon::ActivationReason reason){
 void PomodoroUI::UpdateTrayTooltip(){
     //Set the tooltip for the tray icon.
     QString ttip = this->toggle->text();
-    ttip.append(QString::fromStdString("\nTime Left in Segment: "));
-    ttip.append(this->clock->text());
-    ttip.append(QString::fromStdString("\nCurrent Pomodoro: " + this->cycle->get_c_pom_str()));
-    ttip.append(QString::fromStdString("\nCurrent Cycle: " + this->cycle->get_c_cycle_str()));
+    ttip.append((this->clock->text()).append("\n").prepend("\n"));
+    QString cycle_info;
+    cycle_info.append(QString::fromStdString("Current Pomodoro: " + this->cycle->get_c_pom_str()));
+    cycle_info.append(QString::fromStdString("\nCurrent Cycle: " + this->cycle->get_c_cycle_str()));
+    this->pc_status->setText(cycle_info);
+    ttip.append(cycle_info);
     this->tray->setToolTip(ttip);
     //loop_timer->start(1000);
 }

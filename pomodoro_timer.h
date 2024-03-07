@@ -43,10 +43,10 @@ public:
         return std::to_string(this->c_cycle);
     }
     std::string get_m_pom_str(){
-        return std::to_string(this->c_pomodoros);
+        return std::to_string(this->m_pomodoros);
     }
     std::string get_m_cycle_str(){
-        return std::to_string(this->c_cycle);
+        return std::to_string(this->m_cycles);
     }
     int get_len_study_int(){
         return this->len_study;

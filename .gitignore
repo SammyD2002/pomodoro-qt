@@ -33,6 +33,7 @@ qrc_*.cpp
 Thumbs.db
 *.res
 *.rc
+.ccls-cache/
 /.qmake.cache
 /.qmake.stash
 

@@ -31,7 +31,7 @@ TimerConfig::TimerConfig(PomodoroTimer* parentTimer){
     layout->addWidget(this->long_break_unit, 2, 2);
 
     //Pomodoros per Cycle Editor
-    this->p_per_c_label = new QLabel(tr("Pomodors per Cycle:"));
+    this->p_per_c_label = new QLabel(tr("Pomodoros per Cycle:"));
     layout->addWidget(this->p_per_c_label, 0, 3);
     this->p_per_c = new QLineEdit(this);
     layout->addWidget(this->p_per_c, 0, 4);
@@ -75,11 +75,11 @@ QString TimerConfig::ms_to_min(int ms){
 }
 
 void TimerConfig::setPlaceholders(){
-    this->study->setPlaceholderText(this->ms_to_min(this->parentTimer->get_len_study_int()));
-    this->short_break->setPlaceholderText(this->ms_to_min(this->parentTimer->get_len_break_s_int()));
-    this->long_break->setPlaceholderText(this->ms_to_min(this->parentTimer->get_len_break_l_int()));
-    this->p_per_c->setPlaceholderText(QString::fromStdString(this->parentTimer->get_m_pom_str()));
-    this->m_cycle->setPlaceholderText(QString::fromStdString(this->parentTimer->get_m_cycle_str()));
+    this->study->setText(this->ms_to_min(this->parentTimer->get_len_study_int()));
+    this->short_break->setText(this->ms_to_min(this->parentTimer->get_len_break_s_int()));
+    this->long_break->setText(this->ms_to_min(this->parentTimer->get_len_break_l_int()));
+    this->p_per_c->setText(QString::fromStdString(this->parentTimer->get_m_pom_str()));
+    this->m_cycle->setText(QString::fromStdString(this->parentTimer->get_m_cycle_str()));
     this->exec();
 }
 

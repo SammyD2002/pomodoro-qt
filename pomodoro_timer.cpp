@@ -84,6 +84,7 @@ void PomodoroTimer::change_segment(){
 }
 //NOTE: start() automatically stops a running timer. Also, 1000 ms per s.
 void PomodoroTimer::resetSegment(){
+    bool prev_active = this->timerInfo->timer->isActive();
     if (this->studying){
         this->timerInfo->timer->start(this->len_study);
     } else if(this->c_pomodoros < this->m_pomodoros){
@@ -91,6 +92,8 @@ void PomodoroTimer::resetSegment(){
     } else{
         this->timerInfo->timer->start(this->len_break_l);
     }
+    if (!prev_active) //Re-enable loop_timer and switch back labels
+        emit this->timer_toggled(true);
 }
 //Pauses the timer if it is running, resumes it if it is paused. If at end of session, toggling timer restarts the session.
 void PomodoroTimer::toggleTimer(){
@@ -106,7 +109,7 @@ void PomodoroTimer::toggleTimer(){
 void PomodoroTimer::adjustSegment(int segment, int new_time){
     switch(segment){
     case 1:
-        std::cout << "UPDATING STUDY..." << std::endl;
+        //std::cout << "UPDATING STUDY..." << std::endl;
         this->len_study = new_time;
         break;
     case 2:
@@ -141,7 +144,10 @@ void PomodoroTimer::resumeTimer(){
 }
 //Method to stop the timer. SHOULD ONLY BE CALLED BY toggleTimer().
 void PomodoroTimer::pauseTimer(){
-    this->timerInfo->rem = this->timerInfo->timer->remainingTime();
+    if(this->timerInfo->timer->isActive())
+        this->timerInfo->rem = this->timerInfo->timer->remainingTime();
+    else
+        this->timerInfo->rem = this->timerInfo->timer->interval();
     this->timerInfo->timer->stop();
     emit this->timer_toggled(false);
 }

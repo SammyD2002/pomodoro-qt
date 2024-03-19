@@ -9,6 +9,7 @@ class PomodoroTimer : public QObject
 {
     Q_OBJECT
 public:
+    const QTime* ZERO_TIME = new QTime(0,0);
     //TODO: Create constructor used to read from config file, or with defaults.
     //Constructor. Takes args for a timer, study time, etc.
     PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim);

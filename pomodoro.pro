@@ -13,12 +13,16 @@ SOURCES += \
     pomodoro_timer.cpp \
     #pomodoro_tray.cpp \
     pomodoro_ui.cpp \
-    timerconfig.cpp
+    preset_manager.cpp \
+    preseteditor.cpp \
+    timerconfig.cpp \
+    timerpreset.cpp
 
 HEADERS += \
     pomodoro_timer.h \
     #pomodoro_tray.h \
     pomodoro_ui.h \
+    preset_manager.h \
     timerconfig.h \
     widgets.h
 

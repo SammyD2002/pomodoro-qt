@@ -3,7 +3,7 @@
 #include "widgets.h"
 #include "pomodoro_timer.h"
 #include "timerconfig.h"
-
+//Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
 /*QT_BEGIN_NAMESPACE
 namespace Ui {
 class PomodoroUI;
@@ -52,7 +52,7 @@ private:
     QLabel* clock;
     QLabel* pc_status;
     std::string status[2];
-    const QTime* ZERO_TIME = new QTime(0,0);
+
     //Actions for menus
     QList<QAction*>* tray_menu_items;
     QMenuBar* top_bar;

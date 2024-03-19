@@ -83,25 +83,49 @@ void TimerConfig::setPlaceholders(){
     this->exec();
 }
 
+//Determine if input is a time in the correct format.
+/* @DOC
+ * Assumptions made for simplicity:
+ *  - Either all times may contain leading 0's, or none of them do.
+ * Supported Time Formats
+ * Unit set to any val:
+ * h:m:s
+ * h:m:s.z
+ *
+ * Unit set to hour
+ * h:m
+ * h:m.%m (TODO)
+ * Unit set to minute
+ * m:s
+ * m:s.z
+ */
+QTime TimerConfig::input_is_formatted_time(QString in, int mode){ //Determine # of : to intelligently decide what type of time is being typed.
+    QTime time = QTime::fromString(in, "h:m:s");
+    if (time.isValid())
+        return time;
+    time = QTime::fromString(in, "h:m:s.z");
+    if (time.isValid())
+        return time;
+    switch (mode){
+    case 0: //Unit = s
+    case 1: //Unit = m
+        time = QTime::fromString(in, "m:s");
+        if (time.isValid())
+            return time;
+        time = QTime::fromString(in, "m:s.z");
+        if (time.isValid())
+            return time;
+        break;
+    case 2:
+        time = QTime::fromString(in, "h:m");
+        if (time.isValid())
+            return time;
+        break;
+    }
+    return time; //time returned here will be invalid and must be checked.
+}
 
-/* //Old comparision from submit()
-    if (this->study->hasAcceptableInput() && this->study->text().toInt() != this->parentTimer->get_len_study_int()){
-        std::cout << "Updating study..." << std::endl;
-        emit this->study_updated(this->study->text().toInt());
-    }
-    if (this->short_break->hasAcceptableInput() && this->short_break->text().toInt() != this->parentTimer->get_len_break_s_int()){
-        emit this->break_s_updated(this->short_break->text().toInt());
-    }
-    if (this->long_break->hasAcceptableInput() && this->long_break->text().toInt() != this->parentTimer->get_len_break_l_int()){
-        emit this->break_l_updated(this->long_break->text().toInt());
-    }
-    if (this->p_per_c->hasAcceptableInput() && this->p_per_c->text().toInt() != this->parentTimer->get_m_pom_int()){
-        emit this->m_pomodoros_updated(this->p_per_c->text().toInt());
-    }
-    if (this->m_cycle->hasAcceptableInput() && this->m_cycle->text().toInt() != this->parentTimer->get_m_cycle_int()){
-        emit this->m_cycles_updated(this->m_cycle->text().toInt());
-    }
-    */
+
 //Slots
 void TimerConfig::submit(){
     //Make sure all data is good:
@@ -120,22 +144,25 @@ void TimerConfig::submit(){
     }
 
     if (all_good){
-        if (!(new_vals[0] == 0 || new_vals[0] == this->parentTimer->get_len_study_int()))
-            emit this->study_updated(new_vals[0]);
-        if (!(new_vals[1] == 0 || new_vals[1] == this->parentTimer->get_len_break_s_int()))
-            emit this->break_s_updated(new_vals[1]);
-        if (!(new_vals[2] == 0 || new_vals[2] == this->parentTimer->get_len_break_l_int()))
-            emit this->break_l_updated(new_vals[2]);
-        if (!(new_vals[3] == 0 || new_vals[3] == this->parentTimer->get_m_pom_int()))
-            emit this->m_pomodoros_updated(new_vals[3]);
-        if (!(m_cycle_enabled->isChecked() != this->parentTimer->is_cycle_lim_enabled())) //If lim is enabled, box is unchecked.
-            emit this->cycle_limit_toggled(this->m_cycle_enabled->isChecked());
-        if (!(m_cycle_enabled->isChecked()) && !(new_vals[4] == 0 || new_vals[4] == this->parentTimer->get_m_cycle_int()))
-            emit this->m_cycles_updated(new_vals[4]);
+        this->apply_changes();
         this->close();
     }
 }
 
+virtual void TimerConfig::apply_changes(int new_vals[5]){
+    if (!(new_vals[0] == 0 || new_vals[0] == this->parentTimer->get_len_study_int()))
+        emit this->study_updated(new_vals[0]);
+    if (!(new_vals[1] == 0 || new_vals[1] == this->parentTimer->get_len_break_s_int()))
+        emit this->break_s_updated(new_vals[1]);
+    if (!(new_vals[2] == 0 || new_vals[2] == this->parentTimer->get_len_break_l_int()))
+        emit this->break_l_updated(new_vals[2]);
+    if (!(new_vals[3] == 0 || new_vals[3] == this->parentTimer->get_m_pom_int()))
+        emit this->m_pomodoros_updated(new_vals[3]);
+    if (!(m_cycle_enabled->isChecked() != this->parentTimer->is_cycle_lim_enabled())) //If lim is enabled, box is unchecked.
+        emit this->cycle_limit_toggled(this->m_cycle_enabled->isChecked());
+    if (!(m_cycle_enabled->isChecked()) && !(new_vals[4] == 0 || new_vals[4] == this->parentTimer->get_m_cycle_int()))
+        emit this->m_cycles_updated(new_vals[4]);
+}
 
 void TimerConfig::submit_and_restart(){
     this->submit();
@@ -152,24 +179,36 @@ QComboBox* TimerConfig::setupUnitBox(QComboBox* units){
     return units;
 }
 
+//TODO: Update this to detect times as hh:mm:ss & return a different integer. Only do this if dec is true.
+//NOTE: Other string chars only allowed if also in format.
+//0 is false, any other int is true.
 bool TimerConfig::input_is_int(QString in, bool dec){
     if (in.isEmpty())
-        return false;
+        return 0;
+    bool is_int = true;
     for(QString::const_iterator c = in.cbegin(); c != in.cend(); c++){
-        if(!(c->isDigit() || (dec && *(c) == QChar('.')))) //If c isn't a number or period if dec enabled
+        if(!(c->isDigit() || (dec && *(c) == QChar('.')))) //If c isn't a number or period if dec enabled.
             return false;
     }
     return true;
 }
-
-//-1 = invalid input, -2 = input out of bounds, 0 = empty input, others
-int TimerConfig::time_valid(QString in, int unit){
+    //TODO: Implement hh:mm:ss time format
+    //-1 = invalid input, -2 = input out of bounds, 0 = empty input, others
+int TimerConfig::time_valid(const QString in, int unit){
+    //First, attempt to derive time as n s/m/h
+    float new_time_f;
     if (in.isEmpty())
         return 0;
-    if (!this->input_is_int(in, true))
+    if (!this->input_is_int(in, true)){
+        //Since this failed, attempt to get time as hh:mm:ss.ms/mm:ss.ms
+        QTime input_time = this->input_is_formatted_time(in, unit);
+        if (input_time.isValid())
+            return this->parentTimer->ZERO_TIME->msecsTo(input_time); //Get time from 0:0:0.0 to the inputted time.
         return -1;
+    }
+    else
+        new_time_f = in.toFloat();
     int new_time = 0; //If this is not updated, something has broken.
-    float new_time_f = in.toFloat();
     switch(unit){ //Convert nums to smaller value until ms is reached.
     case 2: //hours
         new_time_f *= 60; //Hours to Minutes = m = 1/60 hours -> 60m = 1h

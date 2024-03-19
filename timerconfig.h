@@ -17,6 +17,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    //Put utility functions used for verifying data HERE.
 signals:
     void study_updated(int); //Sent when config was updated
     void break_s_updated(int);
@@ -63,9 +64,12 @@ private:
     QComboBox* setupUnitBox(QComboBox*);
     //Return integer in ms if the user input is valid.
     bool input_is_int(QString, bool);
+    QTime input_is_formatted_time(QString, int);
     QString ms_to_min(int);
     int time_valid(QString, int);
     int cycles_valid(QString);
+    //Apply settings to running timer.
+    virtual void apply_changes();
 
 private slots:
     //void savePreset(QString);

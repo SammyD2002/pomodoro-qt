@@ -1,6 +1,7 @@
 #include "pomodoro_ui.h"
 //#include "ui_pomodoro_ui.h"
 
+//why
 PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     //Main Window Visual Elements + Layout
     this->toggle = new QPushButton("Start");
@@ -211,7 +212,7 @@ void PomodoroUI::update_segment(int status){
     this->UpdateTrayTooltip();
 }
 void PomodoroUI::update_timer_display(){
-    QTime remTime = ZERO_TIME->addMSecs((this->main_timer->remainingTime() / 1000) * 1000);
+    QTime remTime = this->cycle->ZERO_TIME->addMSecs((this->main_timer->remainingTime() / 1000) * 1000);
     if(this->log_stdout)
         std::cout << qPrintable(remTime.toString("hh:mm:ss")) << std::endl;
     this->clock->setText(QString("Time Left in Segment:\n").append(remTime.toString("hh:mm:ss")));

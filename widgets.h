@@ -20,4 +20,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QRadioButton>
+#include <QJsonDocument>
+#include <QJsonObject>
+
 #endif // WIDGETS_H

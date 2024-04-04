@@ -2,6 +2,7 @@
 #define POMODORO_UI_H
 #include "widgets.h"
 #include "pomodoro_timer.h"
+#include "help_browser.h"
 #include "timerconfig.h"
 //Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
 /*QT_BEGIN_NAMESPACE
@@ -26,10 +27,13 @@ class PomodoroUI : public QWidget
 
 public:
     PomodoroUI(QWidget *parent = nullptr);
+//static help* timer_help;
     //PomodoroUI(bool log_stdout = false);
     //Overloaded function for user-determined time frames.
     //PomodoroUI(QWidget *parent = nullptr, bool notify = true, bool log_stdout = false);
     ~PomodoroUI();
+signals:
+    void get_help();
 protected:
     //per online example, allows overriding window close/minimize events.
     void closeEvent(QCloseEvent *event) override;
@@ -57,10 +61,11 @@ private:
     QList<QAction*>* tray_menu_items;
     QMenuBar* top_bar;
     void SetupMenus();
-    void connectConfigSignals();
+    //void connectConfigSignals();
     void UpdateTrayTooltip();
 
 private slots:
+    void retrieve_help();
     void update_timer_display();
     void toggle_pressed();
     void toggled(bool);
@@ -73,11 +78,13 @@ private slots:
     void update_visible();
     //Start Configuration
     void start_config();
-    void update_study(int);
+    void finish_config();
+    /*void update_study(int);
     void update_break_short(int);
     void update_break_long(int);
     void update_max_pomodoros(int);
     void update_max_cycles(int);
-    void update_cycle_limit(bool);
+    void update_cycle_limit(bool);*/
 };
+
 #endif // POMODORO_UI_H

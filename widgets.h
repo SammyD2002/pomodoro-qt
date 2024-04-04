@@ -8,6 +8,7 @@
 #include <QSystemTrayIcon>
 #include <QPushButton>
 #include <QTime>
+#include <QDateTime>
 #include <QTimer>
 #include <QLabel>
 #include <QGridLayout>
@@ -22,5 +23,11 @@
 #include <QRadioButton>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QTableWidget>
+#include <QHelpEngineCore>
+#include <QHelpLink>
+#include <QTextBrowser>
+#include <QHelpFilterEngine>
 
 #endif // WIDGETS_H

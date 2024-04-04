@@ -5,49 +5,54 @@
 #include "widgets.h"
 #include "timerconfig.h"
 class QTimer;
-class PomodoroTimer : public QObject
+class QDateTime;
+class PomodoroTimer : public QWidget
 {
     Q_OBJECT
 public:
-    const QTime* ZERO_TIME = new QTime(0,0);
+    const QDateTime* ZERO_TIME = new QDateTime(QDate(1,1,1), QTime(0,0)); //Year/Month/Day 0 is invalid.
     //TODO: Create constructor used to read from config file, or with defaults.
     //Constructor. Takes args for a timer, study time, etc.
-    PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim);
+    PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent);
     ~PomodoroTimer(); //This deletes the pointer to the timer wrapper.
     //This function checks where we are in a cycle and resets the timer appropriatly.
     void initCycle(bool);
     //Pauses the timer if it is running, resumes it if it is paused.
     void toggleTimer();
-    //Adjust segment length specified by int segment to int new_time in seconds.
-    void adjustSegment(int segment, int new_time);
     //Method to get the program's status. 0 = studying, 1 = short break, 2 = long break.
     int getStatus();
     void resumeTimer();
     //Method to stop the timer
     void pauseTimer();
+    //Get and set notifications.
+    QString getMessageTitle(int status);
+    QString getMessageTitleTemplate(int status);
+    QString getMessageBody(int status);
+    QString getMessageBodyTemplate(int status);
+
     //Reset the session
     void ResetSession();
     void ResetSegment();
-    std::string get_len_study_str(){
-        return std::to_string(this->len_study);
+    QString get_len_study_str(){
+        return QString::number(this->len_study);
     }
-    std::string get_len_break_s_str(){
-        return std::to_string(this->len_break_s);
+    QString get_len_break_s_str(){
+        return QString::number(this->len_break_s);
     }
-    std::string get_len_break_l_str(){
-        return std::to_string(this->len_break_l);
+    QString get_len_break_l_str(){
+        return QString::number(this->len_break_l);
     }
-    std::string get_c_pom_str(){
-        return std::to_string(this->c_pomodoros);
+    QString get_c_pom_str(){
+        return QString::number(this->c_pomodoros);
     }
-    std::string get_c_cycle_str(){
-        return std::to_string(this->c_cycle);
+    QString get_c_cycle_str(){
+        return QString::number(this->c_cycle);
     }
-    std::string get_m_pom_str(){
-        return std::to_string(this->m_pomodoros);
+    QString get_m_pom_str(){
+        return QString::number(this->m_pomodoros);
     }
-    std::string get_m_cycle_str(){
-        return std::to_string(this->m_cycles);
+    QString get_m_cycle_str(){
+        return QString::number(this->m_cycles);
     }
     int get_len_study_int(){
         return this->len_study;
@@ -76,6 +81,13 @@ public:
     void toggle_log_stdout(bool nval){
         this->log_stdout = nval;
     }
+
+public slots:
+    //Adjust segment length specified by int segment to int new_time in seconds.
+    void adjustSegment(int segment, int new_time);
+    void setMessageTitles(bool updated[6], QString new_messages[6]);
+    void setMessageBodies(bool updated[6], QString new_messages[6]);
+
 signals:
     //Emitted when the current segment changes. The int signals the context of the change.
     //0 = Session started, 1 = study -> short break, 2 = study -> long break,
@@ -112,7 +124,50 @@ private:
     int len_break_l;
     //Are we studying or on break?
     bool studying;
-    //Notifications handled by ui class.
+    //Sending of notifications handled by ui class.
+    //Notification Messages:
+    //Pointers to notification structs that hold the messages.
+    /*
+    0: notification* session_start;
+    1: notification* study_complete
+    2: notification* break_s_complete;
+    3: notification* cycle_complete;
+    4: notification* session_complete;
+    5: notification* session_restart;
+    */
+    //NOTE: Only message titles can be set here due to the use of other vars in the message body.
+    const QString DEFAULT_TITLES[6] = {
+        QString::fromStdString("Starting Study Session"),
+        QString::fromStdString("Study Segment Complete"),
+        QString::fromStdString("Study Cycle Complete"),
+        QString::fromStdString("Short Break Complete"),
+        QString::fromStdString("Study Session Complete"),
+        QString::fromStdString("Restarting Study Session")
+    };
+    /* Strings to replace:
+     * Number of x
+     *  <current_pomodoro>: The current pomodoro
+     *  <pomodoros_per_cycle>: The number of pomodoros in each cycle.
+     *  <current_cycle>: The current cycle
+     *  <cycles_per_session>: The number of cycles in each session. Returns ∞ if no cycle limit set.
+     * Length of x
+     *  <len_study>
+     *  <len_break_s>
+     *  <len_break_l>
+     */
+    const QString DEFAULT_MESSAGES[6] = {
+        QString::fromStdString("Good luck!"),
+        QString::fromStdString(("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!")),
+        QString::fromStdString(("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!")),
+        QString::fromStdString("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
+        QString::fromStdString("Congratulations! Hope you got a lot done!"),
+        QString::fromStdString("Time to get some more work done!")
+    };
+    //Current Notification message.
+    QString titles[6];
+    QString messages[6];
+    //Methods
+    QString constructOutput(QString template_string);
 private slots:
     void change_segment();
     //NOTE: start() automatically stops a running timer.

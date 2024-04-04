@@ -1,6 +1,6 @@
 #include "pomodoro_timer.h"
 //Public Member Functions:
-PomodoroTimer::PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim){
+PomodoroTimer::PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent) : QWidget(parent){
     this->log_stdout = log_stdout;
     this->timerInfo = new PomodoroTimer::timerWrapper;
     this->timerInfo->timer = timer;
@@ -13,6 +13,11 @@ PomodoroTimer::PomodoroTimer(QTimer * timer, int study, int break_s, int break_l
     this->c_limit_enabled = c_lim;
     this->m_pomodoros = m_pomodoros;
     this->c_pomodoros = 0; //Should start the timer upon determining that we are about to do the first segment.
+    //initialize the array of titles
+    for(int i = 0; i < 6; i++){
+        this->titles[i] = QString("");
+        this->messages[i] = QString("");
+    }
     connect(this->timerInfo->timer, &QTimer::timeout, this, &PomodoroTimer::change_segment);
 }
 
@@ -136,6 +141,105 @@ int PomodoroTimer::getStatus(){
     else
         return (2 + int(this->c_pomodoros == this->m_pomodoros)); //* (1 - (2 * int(this->timerInfo->timer->isActive())));
 }
+
+/* Strings to replace:
+     * Number of x
+     *  <current_pomodoro>: The current pomodoro
+     *  <pomodoros_per_cycle>: The number of pomodoros in each cycle.
+     *  <current_cycle>: The current cycle
+     *  <cycles_per_session>: The number of cycles in each session. Returns ∞ if no cycle limit set.
+     * Length of x
+     *  <len_study[/s,/m,/h]>: The length of the study session in seconds/minutes/hours. Default: Minutes
+     *  <len_break_s>
+     *  <len_break_l>
+     */
+QString PomodoroTimer::constructOutput(QString template_string){
+    QString return_string(template_string); //Setup the copy of the template string.
+    //Replace all occurences of current & maximum pomodoros/cycles.
+    return_string = return_string.replace("<current_pomodoro>", QString(this->get_c_pom_str()), Qt::CaseInsensitive);
+    return_string = return_string.replace("<pomodoros_per_cycle>", QString(this->get_m_pom_str()), Qt::CaseInsensitive);
+    return_string = return_string.replace("<current_cycle>", QString(this->get_c_cycle_str()), Qt::CaseInsensitive);
+    if(this->is_cycle_lim_enabled())
+        return_string = return_string.replace("<cycles_per_session>", QString(this->get_m_cycle_str()), Qt::CaseInsensitive);
+    else
+        return_string = return_string.replace("<cycles_per_session>", QString("∞"), Qt::CaseInsensitive);
+    //Set vars to be used in replacement.
+    double study = static_cast<double>(this->get_len_study_int());
+    double break_s = static_cast<double>(this->get_len_break_s_int());
+    double break_l = static_cast<double>(this->get_len_break_l_int());
+    return_string = return_string.replace("<len_study/s>", QString::number(study / 1000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_study/m>", QString::number(study / 60000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_study/h>", QString::number(study / 360000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_study>", QString::number(study / 60000.0), Qt::CaseInsensitive);
+
+    return_string = return_string.replace("<len_break_s/s>", QString::number(break_s / 1000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_s/m>", QString::number(break_s / 60000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_s/h>", QString::number(break_s / 360000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_s>", QString::number(break_s / 60000.0), Qt::CaseInsensitive);
+
+    return_string = return_string.replace("<len_break_l/s>", QString::number(break_l / 1000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_l/m>", QString::number(break_l / 60000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_l/h>", QString::number(break_l / 360000.0), Qt::CaseInsensitive);
+    return_string = return_string.replace("<len_break_l>", QString::number(break_l / 60000.0), Qt::CaseInsensitive);
+    //Return the newly constructed string.
+    return return_string;
+}
+
+//Get a specific message based on the int passed as an arg.
+QString PomodoroTimer::getMessageTitle(int status){
+    if (status <= 5 && status >= 0){
+        if (this->titles[status].isEmpty())
+            return this->constructOutput(this->DEFAULT_TITLES[status]);
+        return this->constructOutput(this->titles[status]);
+    }
+    return NULL;
+}
+
+//Get a specific message based on the int passed as an arg.
+QString PomodoroTimer::getMessageTitleTemplate(int status){
+    if (status <= 5 && status >= 0){
+        if (this->titles[status].isEmpty())
+            return this->DEFAULT_TITLES[status];
+        return this->titles[status];
+    }
+    return NULL;
+}
+
+QString PomodoroTimer::getMessageBody(int status){
+    if(status <= 5 && status >= 0){
+        if(this->messages[status].isEmpty())
+            return this->constructOutput(this->DEFAULT_MESSAGES[status]);
+        else
+            return this->constructOutput(this->messages[status]);
+    }
+    else
+        return QString("Status out of index?");
+}
+
+QString PomodoroTimer::getMessageBodyTemplate(int status){
+    if(status <= 5 && status >= 0){
+        if(this->messages[status].isEmpty())
+            return this->DEFAULT_MESSAGES[status];
+        else
+            return this->messages[status];
+    }
+    else
+        return QString("Status out of index?");
+}
+//Update the contents of messages.
+void PomodoroTimer::setMessageTitles(bool updated[6], QString new_messages[6]){
+    for(int i = 0; i < 6; i++){
+        if(updated[i] && !(new_messages[i].isEmpty()))
+            this->titles[i] = new_messages[i];
+    }
+}
+
+void PomodoroTimer::setMessageBodies(bool updated[6], QString new_messages[6]){
+    for(int i = 0; i < 6; i++){
+        if(updated[i] && !(new_messages[i].isEmpty()))
+            this->messages[i] = new_messages[i];
+    }
+}
 //Private Member Functions
 //Method to start the timer.
 void PomodoroTimer::resumeTimer(){
@@ -155,3 +259,25 @@ void PomodoroTimer::pauseTimer(){
 void PomodoroTimer::ResetSegment(){
     this->resetSegment();
 }
+
+/*switch (status){
+    case 0:
+        return QString::fromStdString("Good luck!");
+        break;
+    case 1:
+        return QString::fromStdString(("Nice job out there. You have completed " + this->get_c_pom_str() + " pomodoros.\nEnjoy your short break!"));
+        break;
+    case 2:
+        return QString::fromStdString(("Congratulations! You have completed " + this->get_c_pom_str() + " pomodoros, and have earned your self a long break!"));
+        break;
+    case 3:
+        return QString::fromStdString("Hope you enjoyed the break! Now, GET BACK TO WORK!");
+        break;
+    case 4:
+        return QString::fromStdString("Congratulations! Hope you got a lot done!");
+        break;
+    case 5:
+        return QString::fromStdString("Time to get some more work done!");
+        break;
+    };
+*/

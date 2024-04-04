@@ -1,0 +1,27 @@
+= 1. The Pomodoro Timer =
+	
+
+
+= 2. Configuring the Timer =
+== Segment Editor ==
+	* Each portion of the timer can be edited here, including...
+		1. The Length of the Study and both Break Segments
+		2. The number of pomodoros to a cycle
+		3. How many cycles to do before stopping the timer.
+			- The timer can also be configured to run indefinitly.
+		4. The title and contents of notifications sent when changing to a new segment.
+	* Updated segment lengths will not be applied until the next time that segment is started.
+
+== Notification Editor Syntax ==
+	* The following text, when inserted into the title or body of a notification, will be replaced by the values noted below in the actual notification text.
+	  - NOTE: For the segment lengths, /(letter) denotes the unit of time that the number will be displayed in.
+	    - The brackets denote that this is optional, and the length will be displayed in minutes without it.
+		1. Current Pomodoro Rep: <current_pomodoro>
+		2. Pomodoros per Cycle: <pomodoros_per_cycle>
+		3. Current Cycle: <current_cycle>
+		4. Cycles per Session: <cycles_per_session>
+		  - If the cycle limit is disabled, '∞' will be displayed.
+		5. Length of Study Segment: <len_study[/s,/m,/h]>
+		6. Length of Short Break: <len_break_s[/s,/m,/h]>
+		7. Length of Longer Break: <len_break_l[/s,/m,/h]>
+

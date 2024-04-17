@@ -1,7 +1,9 @@
 #ifndef TIMERCONFIG_H
 #define TIMERCONFIG_H
 #include "widgets.h"
-#include "pomodoro_ui.h"
+//#include "preset_manager.h"
+#include "pomodoro_timer.h"
+#include "help_browser.h"
 class QDialog;
 class QPushButton;
 class QLineEdit;
@@ -9,6 +11,7 @@ class PomodoroTimer;
 class QRadioButton;
 class QTabWidget;
 class SegmentEditor;
+class PresetManager;
 class NotificationEditor;
 
 //The dialog contatining the tabbar and the confirm/cancel buttons.
@@ -16,15 +19,32 @@ class NotificationEditor;
 class TimerConfig : public QDialog
 {
     Q_OBJECT
-
 public:
+    TimerConfig(int buf_upper, QWidget* parent);
     TimerConfig(PomodoroTimer*);
+    static const double UNIT_MULT[3];
     void setup();
-    int time_valid(QString, int);
+    double time_valid(QString, int, bool convert = true);
+    static int convert_time(double time, int unit);
+    double validate_time_string(QString, int);
     int cycles_valid(QString);
-
-
 protected:
+    //Layout
+    QGridLayout* layout;
+    //Parent Timer
+    PomodoroTimer* parentTimer;
+//Buttons:
+    QPushButton* abort;
+    QPushButton* conf_reset;
+    QPushButton* conf_apply;
+//Editor Tabs:
+    //Segment Editor
+    SegmentEditor* s_edit;
+    //Message Editors:
+    NotificationEditor* title_edit;
+    NotificationEditor* message_edit;
+    void setupTabBar();
+    void setupButtons(QString conf_reset = QString("Confirm and Reset"), QString conf_apply = QString("Confirm"), QString abort = QString("Cancel"));
     void closeEvent(QCloseEvent *event) override;
     void reject() override; //This is called by the esc key.
     //Put utility functions used for verifying data HERE.
@@ -41,6 +61,8 @@ signals:
     void titles_updated(bool updated[6], QString updates[6]);
     void messages_updated(bool updated[6], QString updates[6]);
     void config_complete();
+protected slots:
+    bool submit();
 
 private:
     //Move these to seperate menu option.
@@ -48,21 +70,11 @@ private:
     //QComboBox* presets;
     //QPushButton* save_preset;
     //QPushButton* remove_preset;
-    PomodoroTimer* parentTimer;
     QDialog* configWindow;
     QTabWidget* configTabBar;
-    QPushButton* abort;
-    QPushButton* conf_reset;
-    QPushButton* conf_apply;
-    QGridLayout* layout;
-
-    SegmentEditor* s_edit;
-    NotificationEditor* title_edit;
-    NotificationEditor* message_edit;
-    //Message Editors:
 
     //Apply settings to running timer.
-    virtual void apply_changes(int new_vals[5], QString (&new_titles)[6], QString(&new_messages)[6]);
+    virtual bool apply_changes(double new_vals[5], QString (&new_titles)[6], QString(&new_messages)[6]);
     //Return integer in ms if the user input is valid.
     bool input_is_int(QString, bool);
     QDateTime input_is_formatted_time(QString, int);
@@ -70,8 +82,7 @@ private:
 private slots:
     //void savePreset(QString);
     //void loadPreset(QString);
-    bool submit();
-    void submit_and_restart();
+    virtual void submit_and_restart();
     //void cancel();
 };
 
@@ -80,12 +91,16 @@ class SegmentEditor : public QWidget {
     Q_OBJECT
 public:
     SegmentEditor(TimerConfig *parent); //Forces TimerConfig's parent to be set to a TimerConfig object that isn't a nullptr.
-    void setPlaceholders(PomodoroTimer* parentTimer);
-    void getInputs(int (&settings_arr)[5]);
+    virtual void setPlaceholders(PomodoroTimer* parentTimer);
+    virtual void setPlaceholders(const QJsonObject*);
+    void getInputs(double (&settings_arr)[5], bool convert = true);
     //Converts ms to min for the placeholders
     QString ms_to_unit(int, int);
     bool checkCycleLimit(){return this->m_cycle_enabled->isChecked();}
-private:
+    void get_units(int arr[3]);
+    //Do we convert the time to ms?
+    virtual bool convert() {return true;}
+protected:
     QGridLayout* layout;
     TimerConfig* parentConfig;
 
@@ -128,6 +143,7 @@ class NotificationEditor : public QWidget {
 public:
     NotificationEditor(TimerConfig *parent);
     virtual void setPlaceholders(PomodoroTimer* parentTimer);
+    virtual void setPlaceholders(const QJsonObject*);
     void getTitleInputs(QString (&src)[6]) const;
 protected:
     //Layout Handler
@@ -167,9 +183,53 @@ protected slots:
 };
 //Created child class of notification editor for messages.
 class MessageEditor : public NotificationEditor{
+    Q_OBJECT
 public:
     MessageEditor(TimerConfig* parent) : NotificationEditor(parent){}
     virtual void setPlaceholders(PomodoroTimer* parentTimer) override;
+    virtual void setPlaceholders(const QJsonObject*) override;
+
+};
+
+//Preset editor window class:
+
+class PresetEditor : public TimerConfig {
+    Q_OBJECT
+public:
+    //PresetEditor(PomodoroTimer* timer, PresetManager* current_presets, QWidget* parent);
+    PresetEditor(PomodoroTimer* timer, QString preset_name, PresetManager* current_presets, QWidget* parent);
+    ~PresetEditor();
+signals:
+    void request_overwrite(QString Title, QString Message, bool &result, QString accept = QString("Yes"), QString reject = QString("No"));
+private:
+    const QJsonObject* original_preset;
+    QJsonObject* new_preset = NULL;
+    PresetManager* preset_manager;
+    QLabel* preset_name_label;
+    QLineEdit* preset_name_title;
+    virtual bool apply_changes(double new_vals[5], QString (&new_titles)[6], QString(&new_messages)[6]) override;
+    void get_preset_values(int i);
+private slots:
+    void submit_and_restart() override;
+};
+
+class PresetSegmentEditor : public SegmentEditor{
+    Q_OBJECT
+public:
+    PresetSegmentEditor(TimerConfig* parent) : SegmentEditor(parent) {}
+    virtual bool convert() override {return false;}
+};
+
+class PresetNotificationTitleEditor : public NotificationEditor{
+    Q_OBJECT
+public:
+    PresetNotificationTitleEditor(TimerConfig* parent) : NotificationEditor(parent) {}
+};
+
+class PresetNotificationMessageEditor : public MessageEditor{
+    Q_OBJECT
+public:
+    PresetNotificationMessageEditor(TimerConfig* parent) : MessageEditor(parent) {}
 };
 
 #endif // TIMERCONFIG_H

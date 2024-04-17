@@ -82,7 +82,6 @@ QComboBox* SegmentEditor::setupUnitBox(QComboBox* units){
     return units;
 }
 
-
 void SegmentEditor::setPlaceholders(PomodoroTimer* parentTimer){
     this->study->setText(this->ms_to_unit(parentTimer->get_len_study_int(), this->studyUnit->currentIndex()));
     this->short_break->setText(this->ms_to_unit(parentTimer->get_len_break_s_int(), this->short_break_unit->currentIndex()));
@@ -91,13 +90,20 @@ void SegmentEditor::setPlaceholders(PomodoroTimer* parentTimer){
     this->m_cycle->setText(parentTimer->get_m_cycle_str());
 }
 
-void SegmentEditor::getInputs(int (&settings_arr)[5]){
-    settings_arr[0] = this->parentConfig->time_valid(this->study->text(), this->studyUnit->currentIndex());
-    settings_arr[1] = this->parentConfig->time_valid(this->short_break->text(), this->short_break_unit->currentIndex());
-    settings_arr[2] = this->parentConfig->time_valid(this->long_break->text(), this->long_break_unit->currentIndex());
-    settings_arr[3] = this->parentConfig->cycles_valid(this->p_per_c->text());
-    settings_arr[4] = this->parentConfig->cycles_valid(this->m_cycle->text());
+void SegmentEditor::getInputs(double (&settings_arr)[5], bool convert){
+    settings_arr[0] = this->parentConfig->time_valid(this->study->text(), this->studyUnit->currentIndex(), convert);
+    settings_arr[1] = this->parentConfig->time_valid(this->short_break->text(), this->short_break_unit->currentIndex(), convert);
+    settings_arr[2] = this->parentConfig->time_valid(this->long_break->text(), this->long_break_unit->currentIndex(), convert);
+    settings_arr[3] = static_cast<double>(this->parentConfig->cycles_valid(this->p_per_c->text()));
+    settings_arr[4] = static_cast<double>(this->parentConfig->cycles_valid(this->m_cycle->text()));
 }
+
+void SegmentEditor::get_units(int arr[3]){
+    arr[0] = this->studyUnit->currentIndex();
+    arr[1] = this->short_break_unit->currentIndex();
+    arr[2] = this->long_break_unit->currentIndex();
+}
+
 
 void SegmentEditor::retrieve_help(){
     help_browser::load_help("SegmentEditor", this->parentConfig);

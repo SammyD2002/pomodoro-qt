@@ -1,39 +1,62 @@
 #include "timerconfig.h"
 //TODO: Add buttons to edit message text (welcome, study done, s & l break done, cycle done, session done).
 //REMINDER: Preset headers are commented out in .pro file.
-TimerConfig::TimerConfig(PomodoroTimer* parentTimer) : QDialog(parentTimer) {
-    this->layout = new QGridLayout(this);
-    //Need to add labels and unit selection boxes.
-    this->setWindowModality(Qt::WindowModal); //Blocks input to other windows while active.
-    this->parentTimer = parentTimer;
+
+//Multiplier for the index of a UNIT array used in multiple other places in the program.
+const double TimerConfig::UNIT_MULT[3] = {1000, 60000, 3600000};
+
+TimerConfig::TimerConfig(PomodoroTimer* parentTimer) : TimerConfig(0, parentTimer){
+    //Tabs
     this->s_edit = new SegmentEditor(this);
     this->title_edit = new NotificationEditor(this);
     this->message_edit = new MessageEditor(this);
-    //Setup the tab widget:
-    configTabBar = new QTabWidget(this);
-    configTabBar->addTab(this->s_edit, "Segment Lengths"); //Keep the normal config here.
-    configTabBar->addTab(this->title_edit, "Notification Titles"); //Add the message config here.
-    configTabBar->addTab(this->message_edit, "Notification Messages");
-    //Add the tab bar to the window layout
-    this->layout->addWidget(this->configTabBar, 0, 0, 1, 3);
-    //TODO: Add Cycle Limit Remover
-
-    //Push Buttons
-    this->conf_reset = new QPushButton("Confirm and Reset", this);
-    layout->addWidget(conf_reset, 2, 0);
-    this->conf_apply = new QPushButton("Confirm");
-    layout->addWidget(conf_apply, 2, 1);
-    this->abort = new QPushButton("Cancel");
-    layout->addWidget(this->abort, 2, 2);
+    this->setupTabBar();
+    this->setupButtons();
+    //Set the parentTimer variable.
+    this->parentTimer = parentTimer;
+    connect(this->conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
+    connect(this->conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
     //Connect UI Actions
-    connect(conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
-    connect(conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
-    connect(abort, &QPushButton::clicked, this, &TimerConfig::close);
-    //Connect submit actions
+    //connect(conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
+    //connect(conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
+    //Connect post submit actions
     connect(this, &TimerConfig::segment_updated, parentTimer, &PomodoroTimer::adjustSegment);
     connect(this, &TimerConfig::titles_updated, parentTimer, &PomodoroTimer::setMessageTitles);
     connect(this, &TimerConfig::messages_updated, parentTimer, &PomodoroTimer::setMessageBodies);
+}
+TimerConfig::TimerConfig(int buf_upper, QWidget* parent) : QDialog(parent){
+    this->layout = new QGridLayout(this);
+    //Need to add labels and unit selection boxes.
+    this->setWindowModality(Qt::WindowModal); //Blocks input to other windows while active.
+
+    //Setup the tab widget:
+    configTabBar = new QTabWidget(this);
+    //Add the tab bar to the window layout
+    this->layout->addWidget(this->configTabBar, buf_upper, 0, 1, 3);
+    //TODO: Add Cycle Limit Remover
+
+    //Push Buttons
+    this->conf_reset = new QPushButton();
+    layout->addWidget(conf_reset, 2, 0);
+    this->conf_apply = new QPushButton();
+    layout->addWidget(conf_apply, 2, 1);
+    this->abort = new QPushButton();
+    layout->addWidget(this->abort, 2, 2);
+    connect(abort, &QPushButton::clicked, this, &TimerConfig::close);
     //this->show();
+}
+
+void TimerConfig::setupTabBar(){
+    //Add tabs to the tab bar
+    configTabBar->addTab(this->s_edit, "Segment Lengths"); //Keep the normal config here.
+    configTabBar->addTab(this->title_edit, "Notification Titles"); //Add the message config here.
+    configTabBar->addTab(this->message_edit, "Notification Messages");
+}
+
+void TimerConfig::setupButtons(QString conf_reset, QString conf_apply, QString abort){
+    this->conf_reset->setText(conf_reset);
+    this->conf_apply->setText(conf_apply);
+    this->abort->setText(abort);
 }
 
 
@@ -102,10 +125,10 @@ QDateTime TimerConfig::input_is_formatted_time(QString in, int mode){ //Determin
 bool TimerConfig::submit(){
     //Make sure all data is good:
     bool all_good = true;
-    int new_vals[5];
+    double new_vals[5];
     QString new_titles[6];
     QString new_messages[6];
-    this->s_edit->getInputs(new_vals);
+    this->s_edit->getInputs(new_vals, this->s_edit->convert());
     this->title_edit->getTitleInputs(new_titles);
     this->message_edit->getTitleInputs(new_messages);
     for(int i = 0; i < 5 - static_cast<int>(this->s_edit->checkCycleLimit()); i++){
@@ -116,26 +139,31 @@ bool TimerConfig::submit(){
     }
 
     if (all_good){
-        this->apply_changes(new_vals, new_titles, new_messages);
-        this->close();
-        return true;
+        std::cout << "Attempting to apply changes..." << std::endl;
+        if(this->apply_changes(new_vals, new_titles, new_messages)){
+            this->close();
+            return true;
+        }
     }
     return false;
 }
 
-void TimerConfig::apply_changes(int new_vals[5], QString (&new_titles)[6], QString (&new_messages)[6]){
-    if (!(new_vals[0] == 0 || new_vals[0] == this->parentTimer->get_len_study_int()))
-        emit this->segment_updated(1, new_vals[0]);
-    if (!(new_vals[1] == 0 || new_vals[1] == this->parentTimer->get_len_break_s_int()))
-        emit this->segment_updated(2, new_vals[1]);
-    if (!(new_vals[2] == 0 || new_vals[2] == this->parentTimer->get_len_break_l_int()))
-        emit this->segment_updated(3, new_vals[2]);
-    if (!(new_vals[3] == 0 || new_vals[3] == this->parentTimer->get_m_pom_int()))
-        emit this->segment_updated(4, new_vals[3]);
+bool TimerConfig::apply_changes(double new_vals[5], QString (&new_titles)[6], QString (&new_messages)[6]){
+    int ms_int[5];
+    for (int i = 0; i < 5; i++)
+        ms_int[i] = static_cast<int>(new_vals[i]);
+    if (!(ms_int[0] == 0 || ms_int[0] == this->parentTimer->get_len_study_int()))
+        emit this->segment_updated(1, ms_int[0]);
+    if (!(ms_int[1] == 0 || ms_int[1] == this->parentTimer->get_len_break_s_int()))
+        emit this->segment_updated(2, ms_int[1]);
+    if (!(ms_int[2] == 0 || ms_int[2] == this->parentTimer->get_len_break_l_int()))
+        emit this->segment_updated(3, ms_int[2]);
+    if (!(ms_int[3] == 0 || ms_int[3] == this->parentTimer->get_m_pom_int()))
+        emit this->segment_updated(4, ms_int[3]);
     if (!(this->s_edit->checkCycleLimit() != this->parentTimer->is_cycle_lim_enabled())) //If lim is enabled, box is unchecked.
         emit this->segment_updated(6, !(this->s_edit->checkCycleLimit()));
     if (!(this->s_edit->checkCycleLimit()) && !(new_vals[4] == 0 || new_vals[4] == this->parentTimer->get_m_cycle_int()))
-        emit this->segment_updated(5, new_vals[4]);
+        emit this->segment_updated(5, static_cast<int>(new_vals[4]));
     //Push updated titles.
     bool t_updated[6];
     for (int i = 0; i < 6; i++){
@@ -154,12 +182,15 @@ void TimerConfig::apply_changes(int new_vals[5], QString (&new_titles)[6], QStri
             m_updated[i] = false;
     }
     emit this->messages_updated(m_updated, new_messages);
-
+    int units[3];
+    this->s_edit->get_units(units);
+    this->parentTimer->constructSettingsJson(units);
+    return true;
 }
 
 void TimerConfig::submit_and_restart(){
     if (this->submit())
-        this->parentTimer->initCycle(false);
+        this->parentTimer->initCycle(false); //TODO: Replace this with an emitted signal that can be rerouted via the preset editor.
     //Restart the prog
 }
 
@@ -177,9 +208,31 @@ bool TimerConfig::input_is_int(QString in, bool dec){
 }
     //TODO: Implement hh:mm:ss time format
     //-1 = invalid input, -2 = input out of bounds, 0 = empty input, others
-int TimerConfig::time_valid(const QString in, int unit){ //TODO: Prevent user from inputing more than 24 hours.
+double TimerConfig::time_valid(const QString in, int unit, bool convert){ //TODO: Prevent user from inputing more than 24 hours.
+    double new_time_d = TimerConfig::validate_time_string(in, unit);
+    if (convert)
+        new_time_d = static_cast<double>(TimerConfig::convert_time(new_time_d, unit)); //If this is not updated, something has broken.
+    return new_time_d;
+}
+int TimerConfig::convert_time(double time, int unit){
+    int new_time = 0;
+    switch(unit){ //Convert nums to smaller value until ms is reached.
+    case 2: //hours
+        time *= 60; //Hours to Minutes = m = 1/60 hours -> 60m = 1h
+    case 1: //min
+        time *= 60; //Minutes to Seconds: sec = 1/60 minutes -> 60s = 1m
+    case 0: //Seconds
+        new_time = time * 1000; //Seconds to ms: ms = 1/1000 seconds -> 1000ms = 1s
+        break;
+    };
+    if(new_time <= 0)
+        return -1;
+    else
+        return new_time;
+}
+
+double TimerConfig::validate_time_string(QString in, int unit){
     //First, attempt to derive time as n s/m/h
-    float new_time_f;
     if (in.isEmpty())
         return 0;
     if (!this->input_is_int(in, true)){
@@ -190,21 +243,7 @@ int TimerConfig::time_valid(const QString in, int unit){ //TODO: Prevent user fr
         return -1;
     }
     else
-        new_time_f = in.toFloat();
-    int new_time = 0; //If this is not updated, something has broken.
-    switch(unit){ //Convert nums to smaller value until ms is reached.
-    case 2: //hours
-        new_time_f *= 60; //Hours to Minutes = m = 1/60 hours -> 60m = 1h
-    case 1: //min
-        new_time_f *= 60; //Minutes to Seconds: sec = 1/60 minutes -> 60s = 1m
-    case 0: //Seconds
-        new_time = new_time_f * 1000; //Seconds to ms: ms = 1/1000 seconds -> 1000ms = 1s
-        break;
-    };
-    if(new_time <= 0)
-        return -1;
-    else
-        return new_time;
+        return in.toDouble();
 }
 
 int TimerConfig::cycles_valid(QString in){

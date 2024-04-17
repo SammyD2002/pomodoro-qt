@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui help
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -9,16 +9,20 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    help_browser.cpp \
     main.cpp \
+    notification_editor.cpp \
     pomodoro_timer.cpp \
     #pomodoro_tray.cpp \
     pomodoro_ui.cpp \
+    preset_editor.cpp \
     preset_manager.cpp \
-    preseteditor.cpp \
+    segment_editor.cpp \
     timerconfig.cpp \
     timerpreset.cpp
 
 HEADERS += \
+    help_browser.h \
     pomodoro_timer.h \
     #pomodoro_tray.h \
     pomodoro_ui.h \
@@ -35,6 +39,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \
+    doc_html/doc.qhcp \
+    doc_html/doc.qhp \
+    doc_html/help.qch \
     icons/book.svg \
     icons/smiley.svg
 

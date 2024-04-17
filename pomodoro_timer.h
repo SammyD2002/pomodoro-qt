@@ -4,6 +4,7 @@
 //Class must be derived from qobject for some reason.
 #include "widgets.h"
 #include "timerconfig.h"
+#include "preset_manager.h"
 class QTimer;
 class QDateTime;
 class PomodoroTimer : public QWidget
@@ -13,8 +14,11 @@ public:
     const QDateTime* ZERO_TIME = new QDateTime(QDate(1,1,1), QTime(0,0)); //Year/Month/Day 0 is invalid.
     //TODO: Create constructor used to read from config file, or with defaults.
     //Constructor. Takes args for a timer, study time, etc.
-    PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent);
+    PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent);
+    PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_stdout, QWidget* parent);
+
     ~PomodoroTimer(); //This deletes the pointer to the timer wrapper.
+    QJsonObject settingsToJson(QString name);
     //This function checks where we are in a cycle and resets the timer appropriatly.
     void initCycle(bool);
     //Pauses the timer if it is running, resumes it if it is paused.
@@ -29,7 +33,9 @@ public:
     QString getMessageTitleTemplate(int status);
     QString getMessageBody(int status);
     QString getMessageBodyTemplate(int status);
-
+    //Get Current Preset
+    QJsonObject getPresetJson(QString name);
+    void constructSettingsJson(int units[3]);
     //Reset the session
     void ResetSession();
     void ResetSegment();
@@ -87,6 +93,8 @@ public slots:
     void adjustSegment(int segment, int new_time);
     void setMessageTitles(bool updated[6], QString new_messages[6]);
     void setMessageBodies(bool updated[6], QString new_messages[6]);
+    //Apply a preset from a QJsonObject passed as an argument:
+    bool applyPreset(const QJsonObject* preset);
 
 signals:
     //Emitted when the current segment changes. The int signals the context of the change.
@@ -104,7 +112,8 @@ private:
         int rem;
     };
     timerWrapper* timerInfo;
-    //Method to start the timer.
+    //Create Json for currentPreset that is updated with each edit to the timer.
+    QJsonObject* currentPreset = NULL;
     bool log_stdout;
 
     //Timer vars
@@ -164,8 +173,8 @@ private:
         QString::fromStdString("Time to get some more work done!")
     };
     //Current Notification message.
-    QString titles[6];
-    QString messages[6];
+    QString* titles;
+    QString* messages;
     //Methods
     QString constructOutput(QString template_string);
 private slots:

@@ -1,13 +1,13 @@
 #include "pomodoro_timer.h"
 //Public Member Functions:
-PomodoroTimer::PomodoroTimer(QTimer * timer, int study, int break_s, int break_l, int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent) : QWidget(parent){
+PomodoroTimer::PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent) : QWidget(parent){
     this->log_stdout = log_stdout;
     this->timerInfo = new PomodoroTimer::timerWrapper;
     this->timerInfo->timer = timer;
     this->timerInfo->rem = -1;
-    this->len_study = study * 1000; //Times sent as s, this adjusts them to ms.
-    this->len_break_s = break_s * 1000;
-    this->len_break_l = break_l * 1000;
+    this->len_study = TimerConfig::convert_time(study, units[0]); //Times sent as s, this adjusts them to ms.
+    this->len_break_s = TimerConfig::convert_time(break_s, units[1]);
+    this->len_break_l = TimerConfig::convert_time(break_l, units[2]);
     this->m_cycles = m_cycles;
     this->c_cycle = 0;
     this->c_limit_enabled = c_lim;
@@ -19,11 +19,69 @@ PomodoroTimer::PomodoroTimer(QTimer * timer, int study, int break_s, int break_l
         this->messages[i] = QString("");
     }
     connect(this->timerInfo->timer, &QTimer::timeout, this, &PomodoroTimer::change_segment);
+    this->constructSettingsJson(units);
+}
+
+PomodoroTimer::PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_stdout, QWidget* parent) : QWidget(parent){
+    this->log_stdout = log_stdout;
+    this->timerInfo = new PomodoroTimer::timerWrapper;
+    this->timerInfo->timer = timer;
+    this->applyPreset(preset);
+}
+
+bool PomodoroTimer::applyPreset(const QJsonObject *preset){
+    //Assign the study length.
+    this->len_study = PresetManager::getSegmentLength((*preset)["len_study"]);
+    //Assign the short break length.
+    this->len_break_s = PresetManager::getSegmentLength((*preset)["len_break_s"]);
+    //Assign the long break length.
+    this->len_break_l = PresetManager::getSegmentLength((*preset)["len_break_l"]);
+    this->c_cycle = 0;
+    this->m_cycles = PresetManager::getPresetInt((*preset)["max_cycles"]);
+    this->c_pomodoros = 0;
+    this->m_pomodoros = PresetManager::getPresetInt((*preset)["max_pomodoros"]);
+    this->titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
+    this->messages = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
+    this->c_limit_enabled = PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
+    //If we made it here, the invalid argument exception was NOT thrown. proceed with updateing the preset pointer.
+    if(this->currentPreset != NULL)
+        delete this->currentPreset;
+    //(Hopefully) Create a copy of the Preset.
+    this->currentPreset = new QJsonObject(*(preset));
+    return true;
 }
 
 PomodoroTimer::~PomodoroTimer(){
     delete (this->timerInfo);
+    delete (this->currentPreset);
 }
+
+void PomodoroTimer::constructSettingsJson(int units[3]){
+    QJsonArray titles;
+    QJsonArray messages;
+    for(int i = 0; i < 6; i++){
+        titles.append(this->titles[i]);
+        messages.append(this->messages[i]);
+    }
+    this->currentPreset = new QJsonObject({
+        {"preset_name", QString("")},
+        {"len_study", QJsonArray({(static_cast<double>(this->len_study) / TimerConfig::UNIT_MULT[units[0]]), units[0]})}, //length, unit.
+        {"len_break_s", QJsonArray({(static_cast<double>(this->len_break_s) / TimerConfig::UNIT_MULT[units[1]]), units[1]})},
+        {"len_break_l", QJsonArray({(static_cast<double>(this->len_break_l) / TimerConfig::UNIT_MULT[units[2]]), units[2]})},
+        {"cycle_lim_enabled", this->c_limit_enabled},
+        {"max_pomodoros", this->m_pomodoros},
+        {"max_cycles", this->m_cycles},
+        {"notification_titles", titles},
+        {"notification_messages", messages}
+    });
+}
+
+QJsonObject PomodoroTimer::getPresetJson(QString name){
+    QJsonObject returning =  QJsonObject(*(this->currentPreset));
+    returning["preset_name"] = name;
+    return returning;
+}
+
 
 void PomodoroTimer::initCycle(bool reset){
     this->timerInfo->timer->start(this->len_study);
@@ -109,6 +167,11 @@ void PomodoroTimer::toggleTimer(){
     else
         this->resumeTimer();
 }
+
+void PomodoroTimer::ResetSession(){
+    this->initCycle(false);
+}
+
 //Adjust segment length specified by int segment to int new_time in seconds.
 //To be implemented
 void PomodoroTimer::adjustSegment(int segment, int new_time){

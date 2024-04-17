@@ -4,6 +4,7 @@
 #include "pomodoro_timer.h"
 #include "help_browser.h"
 #include "timerconfig.h"
+#include <QInputDialog>
 //Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
 /*QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -19,6 +20,8 @@ class QTime;
 class QTimer;
 class QSystemTrayIcon;
 class QWidget;
+class QMessageBox;
+
 class PomodoroTimer;
 class TimerConfig;
 class PomodoroUI : public QWidget
@@ -32,6 +35,10 @@ public:
     //Overloaded function for user-determined time frames.
     //PomodoroUI(QWidget *parent = nullptr, bool notify = true, bool log_stdout = false);
     ~PomodoroUI();
+public slots:
+    void preset_added(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def);
+    void preset_removed(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def);
+    void prompt_confirmation(QString Title, QString Message, bool &result, QString accept = QString("Yes"), QString reject = QString("No"));
 signals:
     void get_help();
 protected:
@@ -56,14 +63,21 @@ private:
     QLabel* clock;
     QLabel* pc_status;
     std::string status[2];
-
+    //Object to handle loading and saving of presets.
+    PresetManager* preset_manager;
+    QMenu* load_preset_menu;
+    QMenu* del_preset_menu;
+    QMenu* edit_preset_menu;
+    QMenu* rename_preset_menu;
+    QMenu* new_default_preset_menu;
+    //QMenu* edit_preset_menu;
+    //QMenu* rename_preset_menu;
     //Actions for menus
     QList<QAction*>* tray_menu_items;
     QMenuBar* top_bar;
     void SetupMenus();
     //void connectConfigSignals();
     void UpdateTrayTooltip();
-
 private slots:
     void retrieve_help();
     void update_timer_display();
@@ -79,6 +93,12 @@ private slots:
     //Start Configuration
     void start_config();
     void finish_config();
+    void settings_to_preset();
+    void rename_preset(QAction*);
+    void attempt_preset_load(QAction*);
+    void attempt_preset_remove(QAction*);
+    void attempt_preset_edit(QAction*);
+    void attempt_update_default(QAction*);
     /*void update_study(int);
     void update_break_short(int);
     void update_break_long(int);

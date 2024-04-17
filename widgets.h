@@ -24,10 +24,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QJsonParseError>
 #include <QTableWidget>
 #include <QHelpEngineCore>
 #include <QHelpLink>
 #include <QTextBrowser>
 #include <QHelpFilterEngine>
+#include <QMessageBox>
 
 #endif // WIDGETS_H

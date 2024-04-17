@@ -2,5 +2,7 @@
     <qresource prefix="/">
         <file>icons/book.svg</file>
         <file>icons/smiley.svg</file>
+        <file alias="doc.qch">doc_html/doc.qch</file>
+        <file alias="doc.qhc">doc_html/doc.qhc</file>
     </qresource>
 </RCC>

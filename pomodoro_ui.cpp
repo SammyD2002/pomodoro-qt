@@ -1,50 +1,61 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #include "pomodoro_ui.h"
 //#include "ui_pomodoro_ui.h"
-//Define the help pointer.
-
-//why
 PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
-    this->preset_manager = new PresetManager(QString(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)), this);
-    //Main Window Visual Elements + Layout
-    this->toggle = new QPushButton("Start");
+//Timer Setup
+    //Event loops
     this->main_timer = new QTimer(this);
     this->loop_timer = new QTimer(this);
-    this->clock = new QLabel("");
-    this->pc_status = new QLabel("");
-    layout = new QGridLayout(this);
-    //layout->SetMinimumSize(2,2);
-    layout->addWidget(toggle, 1, 0, 1, 2);
-    layout->addWidget(clock, 2, 0); //-1 should put this on the right side of the window.
-    layout->addWidget(pc_status, 2, 1);
-
+    //Setup the preset manager object.
+    this->preset_manager = new PresetManager(QString(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)), this);
     //Initialize the Pomodoro Cycle & set log_stdout and notify appropriatly.
-    this->log_stdout = false;
-    this->notify = true;
     try{
         this->cycle = new PomodoroTimer(main_timer, this->preset_manager->getDefaultPreset(), log_stdout, this);
     }
     catch (std::invalid_argument &ex){
         delete this->cycle;
-        std::cout << "Json was not parsed. Reverting to default settings..." << std::endl;
+        if (log_stdout)
+            std::cout << "Json was not parsed. Reverting to default settings..." << std::endl;
         int units[3] = {1,1,1};
         this->cycle = new PomodoroTimer(main_timer, 25.0, 5.0, 15.0, units, 2, 4, log_stdout, true, this);
     }
+//Main Window Visual Elements + Layout
+    this->toggle = new QPushButton("Start");
+    this->clock = new QLabel("");
+    this->pc_status = new QLabel("");
+    layout = new QGridLayout(this);
+    layout->addWidget(toggle, 1, 0, 1, 2);
+    layout->addWidget(clock, 2, 0); //-1 should put this on the right side of the window.
+    layout->addWidget(pc_status, 2, 1);
+    this->log_stdout = false;
+    this->notify = true;
     this->config = new TimerConfig(this->cycle);
-
     //System Tray Visual Elements
-    //this->study_icon = QIcon ("/vol/sharedstorage/Software/Projects/Personal/qt/pomodoro/icons/book.svg");
-    //this->breaktime_icon = QIcon ("/vol/sharedstorage/Software/Projects/Personal/qt/pomodoro/icons/smiley.svg");
     this->study_icon = QIcon (QPixmap(QString::fromStdString(":icons/book.svg")));
     this->breaktime_icon = QIcon (QPixmap(QString::fromStdString(":icons/smiley.svg")));
     this->tray = new QSystemTrayIcon(study_icon, this);
     this->tray->show(); //Reveal the icon in the system tray.
     this->tray_menu_items = new QList<QAction*>();
     //Configure Menus
+    QMenu* presetMenu = new QMenu(tr("Presets"));
+    QMenu* create_preset = presetMenu->addMenu(tr("&Create Preset"));
+    QAction* save_current = new QAction(tr("From &Current Settings..."));
+    create_preset->addAction(save_current);
+    QAction* save_default = new QAction(tr("From &Default Settings..."));
+    create_preset->addAction(save_default);
+    this->load_preset_menu = presetMenu->addMenu(tr("&Load Preset"));
+    this->del_preset_menu = presetMenu->addMenu(tr("&Remove Preset"));
+    this->edit_preset_menu = presetMenu->addMenu(tr("&Edit Preset"));
+    this->rename_preset_menu = presetMenu->addMenu(tr("Re&name Preset"));
+    this->new_default_preset_menu = presetMenu->addMenu(tr("Co&py Preset to Default Settings"));
+    this->preset_manager->populate_preset_menu_entries(load_preset_menu, del_preset_menu, edit_preset_menu, rename_preset_menu, new_default_preset_menu);
     this->SetupMenus();
     //Main Window Context Menu
     this->top_bar = new QMenuBar(this);
     this->top_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    //this->layout->addWidget(top_bar, 0, 0);
     QMenu* timer = this->top_bar->addMenu("Timer");
     timer->addAction(this->tray_menu_items->at(1)); //Pause from tray menu
     timer->addAction(this->tray_menu_items->at(2)); //Reset Segment
@@ -52,85 +63,53 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     timer->addSeparator();
     QAction* edit = new QAction(tr("&Edit Timer..."), this);
     timer->addAction(edit); //Edit Paramaters...
-    QMenu* presetMenu = this->top_bar->addMenu("Presets");
-    QAction* save_current = new QAction(tr("&Save Current Settings..."), this);
-    this->load_preset_menu = presetMenu->addMenu(tr("&Load Preset"));
-    this->del_preset_menu = presetMenu->addMenu(tr("&Remove Preset"));
-    this->edit_preset_menu = presetMenu->addMenu(tr("&Edit Preset"));
-    this->rename_preset_menu = presetMenu->addMenu(tr("Re&name Preset"));
-    this->new_default_preset_menu = presetMenu->addMenu(tr("&Copy Preset to Default Settings"));
-    this->preset_manager->populate_preset_menu_entries(load_preset_menu, del_preset_menu, edit_preset_menu, rename_preset_menu, new_default_preset_menu);
-    presetMenu->addAction(save_current);
+    this->top_bar->addMenu(presetMenu);
     QMenu* windowMenu = this->top_bar->addMenu("Window");
     windowMenu->addAction(this->tray_menu_items->at(0));
     QAction* help = new QAction(tr("&Help..."), this);
     windowMenu->addAction(help);
     windowMenu->addAction(this->tray_menu_items->at(4));
-    //QMenu presets = this->top_bar->addMenu("Presets");
-    //QMenu window = this->top_bar->addMenu("Window");
     this->top_bar->setNativeMenuBar(true);
     this->layout->setMenuBar(this->top_bar);
-    //this->resize(layout::size);
-
-    //Signal and Slot Connections
-    connect(edit, &QAction::triggered, this, &PomodoroUI::start_config);
-    connect(this->config, &TimerConfig::config_complete, this, &PomodoroUI::finish_config);
+//Signal and Slot Connections
+    //Setup connections activated when the timer is started/stopped.
     connect(this->toggle, SIGNAL (clicked()), this, SLOT (toggle_pressed()));
-    connect(this->cycle, SIGNAL (segment_changed(int)), this, SLOT (update_segment(int)));
     connect(cycle, &PomodoroTimer::timer_toggled, this, &PomodoroUI::toggled);
+    //Add connections activated when the event loop or the main timer expires.
+    connect(loop_timer, &QTimer::timeout, this, &PomodoroUI::update_timer_display);
+    connect(this->cycle, SIGNAL (segment_changed(int)), this, SLOT (update_segment(int)));
     if (notify){ //Only connect these sockets if notifications are enabled.
         connect(cycle, &PomodoroTimer::segment_changed, this, &PomodoroUI::notify_session);
     }
-    //Connect various preset menu methods:
-    connect(this->load_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_load, Qt::UniqueConnection);
-    connect(save_current, &QAction::triggered, this, &PomodoroUI::settings_to_preset);
-    connect(this->del_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_remove, Qt::UniqueConnection);
-    connect(this->edit_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_edit, Qt::UniqueConnection);
+    //Connect the preset menu methods:
+    connect(this->load_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_load);
+    connect(create_preset, &QMenu::triggered, this, &PomodoroUI::settings_to_preset);
+    connect(this->del_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_remove);
+    connect(this->edit_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_edit);
     connect(this->preset_manager, &PresetManager::presetLoaded, this->cycle, &PomodoroTimer::applyPreset);
     connect(this->rename_preset_menu, &QMenu::triggered, this, &PomodoroUI::rename_preset);
     connect(this->new_default_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_update_default);
-
-    //Connect methods called for presets being added/removed. Qt::UniqueConnection makes it so one menu doesn't trigger the other.
-    connect(this->preset_manager, &PresetManager::preset_added, this, &PomodoroUI::preset_added, Qt::UniqueConnection);
-    connect(this->preset_manager, &PresetManager::preset_removed, this, &PomodoroUI::preset_removed, Qt::UniqueConnection);
-
+    //Connect methods called for presets being added/removed.
+    connect(this->preset_manager, &PresetManager::preset_added, this, &PomodoroUI::preset_added);
+    connect(this->preset_manager, &PresetManager::preset_removed, this, &PomodoroUI::preset_removed);
     //System tray activation signal handler.
     connect(this->tray, &QSystemTrayIcon::activated, this, &PomodoroUI::window_toggle);
-    connect(loop_timer, &QTimer::timeout, this, &PomodoroUI::update_timer_display);
     //Connect le help menu
     connect(help, &QAction::triggered, this, &PomodoroUI::retrieve_help);
-
-
     //Connect editor configs:
-    //this->connectConfigSignals();
+    connect(edit, &QAction::triggered, this, &PomodoroUI::start_config);
+    connect(this->config, &TimerConfig::config_complete, this, &PomodoroUI::finish_config);
     //Start the main & event loop timers.
     this->cycle->initCycle(false);
-    //loop_timer->start(1000);
+    this->loop_timer->start(this->LEN_LOOP);
 }
-/*
-PomodoroUI::PomodoroUI(bool log_stdout): PomodoroUI::PomodoroUI(nullptr) {
-    this->log_stdout = log_stdout;
-    this->cycle->toggle_log_stdout(log_stdout);
-}*/
+//Destructor that destroys the timer and preset manager objects.
 PomodoroUI::~PomodoroUI()
 {
     delete this->cycle;
     delete this->preset_manager;
 }
-
-void PomodoroUI::retrieve_help(){
-    help_browser::load_help(QString("PomodoroUI"), this);
-}
-
-/*
-void PomodoroUI::connectConfigSignals(){
-    connect(this->config, &TimerConfig::study_updated, this, &PomodoroUI::update_study);
-    connect(this->config, &TimerConfig::break_s_updated, this, &PomodoroUI::update_break_short);
-    connect(this->config, &TimerConfig::break_l_updated, this, &PomodoroUI::update_break_long);
-    connect(this->config, &TimerConfig::m_pomodoros_updated, this, &PomodoroUI::update_max_pomodoros);
-    connect(this->config, &TimerConfig::m_cycles_updated, this, &PomodoroUI::update_max_cycles);
-}
-*/
+//Initializes the tray icon's menu.
 void PomodoroUI::SetupMenus(){
     //The tray context menu
     QMenu* tray_actions = new QMenu(this);
@@ -146,15 +125,18 @@ void PomodoroUI::SetupMenus(){
     this->tray_menu_items->append(toggle_timer);
     tray_actions->addAction(toggle_timer);
     //Restart Segment [2]
-    QAction* segment_restart = new QAction(tr("&Restart Segment"), this);
+    QAction* segment_restart = new QAction(tr("Restart Se&gment"), this);
     connect(segment_restart, &QAction::triggered, this->cycle, &PomodoroTimer::ResetSegment);
     this->tray_menu_items->append(segment_restart);
     tray_actions->addAction(segment_restart);
     //Restart Session [3]
-    QAction* session_restart = new QAction(tr("&Restart Session"), this);
+    QAction* session_restart = new QAction(tr("Restart &Session"), this);
     connect(session_restart, &QAction::triggered, this->cycle, &PomodoroTimer::initCycle);
     this->tray_menu_items->append(session_restart);
     tray_actions->addAction(session_restart);
+    tray_actions->addSeparator();
+    //Load Preset [NOT IN ARRAY]. Simply added to the tray's context menu.
+    tray_actions->addMenu(this->load_preset_menu);
     tray_actions->addSeparator();
     //Exit Program [4]
     QAction* exit_program = new QAction(tr("&Exit"), this);
@@ -166,65 +148,23 @@ void PomodoroUI::SetupMenus(){
     //Calling the destructor should quit the app.
     //connect(this, &PomodoroUI::quitting, this, &PomodoroUI::~PomodoroUI);
 }
-
-void PomodoroUI::toggle_pressed(){
-    this->cycle->toggleTimer();
-}
-
+//Toggle the button's text and stop/start and the timer that updates the countdown.
 void PomodoroUI::toggled(bool paused){
     if(paused){
         this->toggle->setText(QString::fromStdString(this->status[0]));
-        this->tray_menu_items->at(1)->setText("Pause Timer");
-        loop_timer->start(1000);
+        this->tray_menu_items->at(1)->setText(tr("&Pause Timer"));
+        loop_timer->start(this->LEN_LOOP);
     }
     else{
         this->toggle->setText(QString::fromStdString(this->status[1]));
-        this->tray_menu_items->at(1)->setText("Resume Timer");
+        this->tray_menu_items->at(1)->setText(tr("&Resume Timer"));
         loop_timer->stop();
     }
     //Reset the tray icon tooltip appropriatly.
     this->UpdateTrayTooltip();
-
 }
 //Slots:
-
-void PomodoroUI::notify_session(int status){
-    //Find and send the applicable notification.
-    //QString noteTitle;
-    //QString noteMessage;
-    //QIcon *icon;
-    //QSystemTrayIcon::Information;
-    //int timeout = 100000
-    /*switch(status){
-    //Initial startup
-        case 0:
-            noteTitle = QString::fromStdString("Starting Study Session");
-            noteMessage = QString::fromStdString("Good luck!");
-            break;
-        case 1:
-            noteTitle = QString::fromStdString("Study Segment Complete");
-            noteMessage = QString::fromStdString(("Nice job out there. You have completed " + cycle->get_c_pom_str() + " pomodoros.\nEnjoy your short break!"));
-            break;
-        case 2:
-            noteTitle = QString::fromStdString("Study Cycle Complete");
-            noteMessage = QString::fromStdString(("Congratulations! You have completed " + cycle->get_c_pom_str() + " pomodoros, and have earned your self a long break!"));
-            break;
-        case 3:
-            noteTitle = QString::fromStdString("Short Break Complete");
-            noteMessage = QString::fromStdString("Hope you enjoyed the break! Now, GET BACK TO WORK!");
-            break;
-        case 4:
-            noteTitle = QString::fromStdString("Study Session Co1mplete");
-            noteMessage = QString::fromStdString("Congratulations! Hope you got a lot done!");
-            break;
-        case 5:
-            noteTitle = QString::fromStdString("Restarting Study Session");
-            noteMessage = QString::fromStdString("Time to get some more work done!");
-            break;
-        };*/
-
-    this->tray->showMessage(this->cycle->getMessageTitle(status), this->cycle->getMessageBody(status));
-}
+//Triggered by signal from the PomodoroTimer object.
 //The integer recieved signals what state we transferred to.
 //0 = Session started, 1 = study -> short break, 2 = study -> long break,
 //3 = x break -> study, 4 = session over, 5 = session restart.
@@ -233,12 +173,12 @@ void PomodoroUI::update_segment(int status){
     if (this->log_stdout)
         std::cout << "Updating segment..." << std::endl;
     if(status == 0 || status || 5)
-        this->loop_timer->start(1000); //Restart the loop timer if not running.
+        this->loop_timer->start(this->LEN_LOOP); //Restart the loop timer if not running.
     if (status == 0 || status == 3 || status == 5){
         this->status[0] = "Studying";
         this->status[1] = "[Paused] Studying";
         this->tray->setIcon(this->study_icon);
-        this->tray_menu_items->at(1)->setText("Pause Timer");
+        this->tray_menu_items->at(1)->setText(tr("&Pause Timer"));
     }
     else if (status == 4){
         this->status[0] = this->status[1] = "Restart";
@@ -257,6 +197,7 @@ void PomodoroUI::update_segment(int status){
     this->toggle->setText(QString::fromStdString(this->status[0]));
     this->UpdateTrayTooltip();
 }
+//Called every second to update the timer's display.
 void PomodoroUI::update_timer_display(){
     QDateTime remTime = this->cycle->ZERO_TIME->addMSecs((this->main_timer->remainingTime() / 1000) * 1000);
     QString output = remTime.toString("hh:mm:ss");
@@ -268,13 +209,7 @@ void PomodoroUI::update_timer_display(){
     //Set the tooltip for the tray icon.
     this->UpdateTrayTooltip();
 }
-
-//Right click = QSystemTrayIcon::Context = 1
-void PomodoroUI::window_toggle(QSystemTrayIcon::ActivationReason reason){
-    if(reason != 1)
-        update_visible();
-}
-
+//Updates the information displayed on the tooltip
 void PomodoroUI::UpdateTrayTooltip(){
     //Set the tooltip for the tray icon.
     QString ttip = this->toggle->text();
@@ -285,33 +220,23 @@ void PomodoroUI::UpdateTrayTooltip(){
     this->pc_status->setText(cycle_info);
     ttip.append(cycle_info);
     this->tray->setToolTip(ttip);
-    //loop_timer->start(1000);
+    //loop_timer->start(this->LEN_LOOP);
 }
-
-void PomodoroUI::update_visible(){
-    if (this->isVisible()){
-        this->tray_menu_items->at(0)->setText("Show Window");
-        this->hide();
-    }
-    else{
-        this->tray_menu_items->at(0)->setText("Hide Window");
-        this->show();
-    }
+//Sends notification to the session if we are notifying.
+void PomodoroUI::notify_session(int status){
+    //Retrieve the notification information from the PomodoroTimer object, and send it with the tray object.
+    this->tray->showMessage(this->cycle->getMessageTitle(status), this->cycle->getMessageBody(status));
 }
-
-void PomodoroUI::quitting(){
-    QCoreApplication::quit();
+//Called when pause button is pressed.
+void PomodoroUI::toggle_pressed(){
+    this->cycle->toggleTimer();
 }
-
-//Called to prepare enviornment and then opens the config.
-void PomodoroUI::start_config(){
-    this->cycle->pauseTimer();
-    //Hide the tray icon to avoid timer tampering.
-    this->tray->hide();
-    this->config->setup();
+//Right click = QSystemTrayIcon::Context = 1
+void PomodoroUI::window_toggle(QSystemTrayIcon::ActivationReason reason){
+    if(reason != 1)
+        update_visible();
 }
-
-//Re-implementation of close event:
+//Re-implementation of close event. Used to minimize to tray when closing but not quitting.
 void PomodoroUI::closeEvent(QCloseEvent *event){
     if(event->spontaneous() && this->tray->isVisible()){
         this->update_visible();
@@ -322,31 +247,40 @@ void PomodoroUI::closeEvent(QCloseEvent *event){
         event->ignore();
     }
 }
-/*
-void PomodoroUI::update_study(int new_val){
-    this->cycle->adjustSegment(1, new_val);
+//Updates the tray menu's Show/Hide Window option appropriatly when the window is hidden/unhidden.
+void PomodoroUI::update_visible(){
+    if (this->isVisible()){
+        this->tray_menu_items->at(0)->setText(tr("&Show Window"));
+        this->hide();
+    }
+    else{
+        this->tray_menu_items->at(0)->setText(tr("Hi&de Window"));
+        this->show();
+    }
 }
-void PomodoroUI::update_break_short(int new_val){
-    this->cycle->adjustSegment(2, new_val);
+//Called to prepare enviornment and then opens the config.
+void PomodoroUI::start_config(){
+    this->cycle->pauseTimer();
+    //Hide the tray icon to avoid timer tampering.
+    this->tray->hide();
+    this->config->setup();
 }
-void PomodoroUI::update_break_long(int new_val){
-    this->cycle->adjustSegment(3, new_val);
+//Called when config window is closed.
+void PomodoroUI::finish_config(){
+    this->cycle->resumeTimer();
+    this->tray->show();
 }
-void PomodoroUI::update_max_pomodoros(int new_val){
-    this->cycle->adjustSegment(4, new_val);
+//Slot used to quit the program from a menu option.
+void PomodoroUI::quitting(){
+    QCoreApplication::quit();
 }
-void PomodoroUI::update_max_cycles(int new_val){
-    this->cycle->adjustSegment(5, new_val);
-}
-
-void PomodoroUI::update_cycle_limit(bool enabled){
-    this->cycle->adjustSegment(6, !enabled);
-}
-*/
-
-//Called to prompt user for the new preset's name.
-void PomodoroUI::settings_to_preset(){
-    QJsonObject curr_settings = this->cycle->getPresetJson("");
+//Called to prompt user to name a new preset from the current settings.
+void PomodoroUI::settings_to_preset(QAction * entry){
+    QJsonObject curr_settings;
+    if (entry->text() == tr("From &Current Settings..."))
+        curr_settings = this->cycle->getPresetJson("");
+    else
+        curr_settings = *(this->preset_manager->getDefaultPreset());
     bool ok;
     QString text;
     do{
@@ -364,12 +298,11 @@ void PomodoroUI::settings_to_preset(){
                     this->preset_manager->update_preset(curr_settings, true);
             }
         }
-
     } while (ok == false);
     if(ok)
         this->preset_manager->writePresetFile();
 }
-
+//Called to prompt the user to give a new name for an existing preset.
 void PomodoroUI::rename_preset(QAction* event){
     int i = this->preset_manager->findPreset(event->text().trimmed());
     if (i < 0)
@@ -409,27 +342,8 @@ void PomodoroUI::rename_preset(QAction* event){
     }
     delete old_settings;
 }
-
-void PomodoroUI::prompt_confirmation(QString Title, QString Message, bool &result, QString accept, QString reject){
-    //Set up the vars and initialize the box.
-    QMessageBox confirm;
-    confirm.setText(Title);
-    confirm.setInformativeText(Message);
-    QPushButton* button_accept = confirm.addButton(accept, QMessageBox::YesRole);
-    QPushButton* button_reject = confirm.addButton(reject, QMessageBox::NoRole);
-    confirm.exec();
-
-    //"Return" true if the accept button was hit, false otherwise.
-    result = confirm.clickedButton() == button_accept;
-}
-
-//Called when config window is closed.
-void PomodoroUI::finish_config(){
-    this->cycle->resumeTimer();
-    this->tray->show();
-}
-//Is the QAction::menu() unique per sender?
-//Public Slots:
+//Is the QAction::menu() unique per sender? Yes, but not relevant here.
+//These functions are called when a preset is added/remove, and adds/removes the appropriate menu option.
 void PomodoroUI::preset_added(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def){
     this->load_preset_menu->addAction(load);
     this->del_preset_menu->addAction(del);
@@ -444,7 +358,9 @@ void PomodoroUI::preset_removed(QAction* load, QAction* del, QAction* edit, QAct
     this->rename_preset_menu->removeAction(ren);
     this->new_default_preset_menu->removeAction(def);
 }
-
+//Attempts to load the preset specified by the user in a menu.
+//Checks if the default preset was selected by comparing the triggered action to the known default entry in the menu.
+//If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_load(QAction* entry){
     QList<QAction*> entryList = this->load_preset_menu->actions();
     if(entry == entryList[0]){
@@ -452,10 +368,11 @@ void PomodoroUI::attempt_preset_load(QAction* entry){
             this->cycle->ResetSession();
         return;
     }
-
     if(this->preset_manager->loadPreset(entry->text().trimmed()))
         this->cycle->ResetSession();
 }
+//Attempts to remove the preset specified by the user in a menu.
+//If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_remove(QAction* entry){
     if (!(this->preset_manager->removePreset(entry->text().trimmed()))){
         if(this->log_stdout)
@@ -463,16 +380,41 @@ void PomodoroUI::attempt_preset_remove(QAction* entry){
     }
 }
 
+//Starts the preset editor with the user selected preset. Does not stop timer while doing this.
+//If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_edit(QAction* entry){
-    PresetEditor* editor = new PresetEditor(this->cycle, entry->text().trimmed(), this->preset_manager, this);
-    connect(editor, &PresetEditor::request_overwrite, this, &PomodoroUI::prompt_confirmation);
-    editor->exec();
+    PresetEditor* editor;
+    try{
+        editor = new PresetEditor(this->cycle, entry->text().trimmed(), this->preset_manager, this);
+        connect(editor, &PresetEditor::request_overwrite, this, &PomodoroUI::prompt_confirmation);
+        editor->exec();
+    }
+    catch (std::invalid_argument &ex){
+        if (this->log_stdout)
+            std::cout << ex.what() << std::endl;
+    }
     delete editor;
 }
+//Copies the selected preset to the default entry.
+//If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_update_default(QAction* entry){
-    if (!(this->preset_manager->update_default_preset(entry->text().trimmed())))
+    if (!(this->preset_manager->update_default_preset(entry->text().trimmed())) && this->log_stdout)
         std::cout << "Default Preset was not updated." <<  std::endl;
-
 }
-
-
+//Creates a dialog titled <Title> with the Message <Message>.
+//They are given two options, <accept> or <reject>. The result is saved to <ok>.
+void PomodoroUI::prompt_confirmation(QString Title, QString Message, bool &result, QString accept, QString reject){
+    //Set up the vars and initialize the box.
+    QMessageBox confirm;
+    confirm.setText(Title);
+    confirm.setInformativeText(Message);
+    QPushButton* button_accept = confirm.addButton(accept, QMessageBox::YesRole);
+    QPushButton* button_reject = confirm.addButton(reject, QMessageBox::NoRole);
+    confirm.exec();
+    //"Return" true if the accept button was hit, false otherwise.
+    result = confirm.clickedButton() == button_accept;
+}
+//Displays the program's help.
+void PomodoroUI::retrieve_help(){
+    help_browser::load_help(QString("PomodoroUI"), this);
+}

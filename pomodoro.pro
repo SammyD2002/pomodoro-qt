@@ -16,10 +16,10 @@ SOURCES += \
     #pomodoro_tray.cpp \
     pomodoro_ui.cpp \
     preset_editor.cpp \
+    preset_list.cpp \
     preset_manager.cpp \
     segment_editor.cpp \
-    timerconfig.cpp \
-    timerpreset.cpp
+    timerconfig.cpp
 
 HEADERS += \
     help_browser.h \

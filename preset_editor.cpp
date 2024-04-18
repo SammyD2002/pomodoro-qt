@@ -1,15 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #include "timerconfig.h"
-
-/*PresetEditor::PresetEditor(PomodoroTimer* timer, PresetManager* current_presets, QWidget* parent) : TimerConfig(1, parent){
-    this->parentTimer = timer;
-    this->setPlaceholders(timer);
-    this->preset_name_label = new QLabel("Preset Name");
-    this->preset_name_title = new QLineEdit(this);
-    this->layout->addWidget(preset_name_label, 0, 0);
-    this->layout->addWidget(preset_name_title, 0, 1);
-    this->preset_name_label->setText("Preset Name");
-    //Connect UI Actions
-}*/
+//Constructs the PresetEditor by calling the TimerConfig constructors before connecting the signals to the appropriate slots.
 PresetEditor::PresetEditor(PomodoroTimer* timer, QString preset_name, PresetManager* current_presets, QWidget* parent) : TimerConfig(1, parent){
     this->parentTimer = timer;
     this->preset_manager = current_presets;
@@ -42,28 +36,29 @@ PresetEditor::PresetEditor(PomodoroTimer* timer, QString preset_name, PresetMana
     this->layout->addWidget(preset_name_title, 0, 1);
 }
 
+//Make sure to delete the new preset objects.
 PresetEditor::~PresetEditor(){
     delete this->original_preset;
     if(this->new_preset != NULL)
         delete this->new_preset;
 }
 
+//Overloaded setPlaceholder methods for each tab to get the settings from a QJsonObject. These are NOT for the PresetEditor Subclasses.
 void SegmentEditor::setPlaceholders(const QJsonObject *preset){
     //Set the bool here early.
     bool check = (*preset)["cycle_lim_enabled"].toBool();
     check = !check;
-    std::cout << std::boolalpha << check << std::endl;
-    this->studyUnit->setCurrentIndex(PresetManager::getPresetInt((*preset)["len_study"].toArray()[1]));
+    this->studyUnit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_study"].toArray()[1]));
     this->study->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_study"]), this->studyUnit->currentIndex()));
 
-    this->short_break_unit->setCurrentIndex(PresetManager::getPresetInt((*preset)["len_break_s"].toArray()[1]));
+    this->short_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_s"].toArray()[1]));
     this->short_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_s"]), this->short_break_unit->currentIndex()));
 
-    this->long_break_unit->setCurrentIndex(PresetManager::getPresetInt((*preset)["len_break_l"].toArray()[1]));
+    this->long_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_l"].toArray()[1]));
     this->long_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_l"]), this->long_break_unit->currentIndex()));
 
-    this->p_per_c->setText(QString::number(PresetManager::getPresetInt((*preset)["max_pomodoros"])));
-    this->m_cycle->setText(QString::number(PresetManager::getPresetInt((*preset)["max_cycles"])));
+    this->p_per_c->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_pomodoros"])));
+    this->m_cycle->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_cycles"])));
     this->m_cycle_enabled->setChecked(check);
 }
 
@@ -78,19 +73,30 @@ void MessageEditor::setPlaceholders(const QJsonObject *preset){
     for (int i = 0; i < 6; i++)
         this->title_inputs[i]->setText(titles[i]);
 }
+
 //Slots
+//Overrides submit and restart to apply the updated preset instead.
+void PresetEditor::submit_and_restart(){
+    if (this->submit()){
+        this->parentTimer->applyPreset(this->new_preset);
+        this->parentTimer->ResetSession();
+    }
+    //Restart the prog
+}
+
+//Overrides the apply_changes function to construct and push an QJsonObject with the presets to the PresetManager object.
 bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], QString(&new_messages)[6]){
     //Create a new iteration of the qjsonobject.
     bool check = this->s_edit->checkCycleLimit();
     check = !check;
-    std::cout << std::boolalpha << check << std::endl;
     QString preset;
     QString original_name = (*(this->original_preset))["preset_name"].toString();
     if(this->preset_name_title->text().trimmed().isEmpty())
         preset = original_name;
     else
         preset = this->preset_name_title->text().trimmed();
-    std::cout << "Applying edits to preset " << qPrintable(preset) << std::endl;
+    if (this->parentTimer->logging_stdout())
+        std::cout << "Applying edits to preset " << qPrintable(preset) << std::endl;
     /* Now obselete, check performed in update function.
     int preset_index = this->preset_manager->findPreset(preset);
     if (preset_index >= 0 && preset != (*(this->original_preset))["preset_name"].toString())
@@ -127,10 +133,4 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
         this->close();
     }
     return ok;
-}
-
-void PresetEditor::submit_and_restart(){
-    if (this->submit())
-        this->parentTimer->applyPreset(this->new_preset);
-    //Restart the prog
 }

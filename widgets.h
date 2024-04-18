@@ -1,5 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #ifndef WIDGETS_H
 #define WIDGETS_H
+#include <iostream>
 #include <QDialog>
 #include <QMainWindow>
 #include <QCoreApplication>
@@ -31,5 +36,6 @@
 #include <QTextBrowser>
 #include <QHelpFilterEngine>
 #include <QMessageBox>
+#include <QInputDialog>
 
 #endif // WIDGETS_H

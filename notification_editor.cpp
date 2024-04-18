@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #include "timerconfig.h"
 NotificationEditor::NotificationEditor(TimerConfig *parent) : QWidget(parent){
     //Initialize the layout

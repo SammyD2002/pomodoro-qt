@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #include "timerconfig.h"
 
 //Segment Editor Constructor:
@@ -55,7 +59,7 @@ SegmentEditor::SegmentEditor(TimerConfig *parent) : QWidget(parent){
     connect(this->help, &QPushButton::pressed, this, &SegmentEditor::retrieve_help);
 }
 
-QString SegmentEditor::ms_to_unit(int ms, int unit){
+QString SegmentEditor::ms_to_unit(int ms, int unit) const{
     float new_time_f = static_cast<float>(ms);
     switch(unit){ //Convert nums to smaller value until ms is reached.
     case 0: //Seconds
@@ -90,7 +94,7 @@ void SegmentEditor::setPlaceholders(PomodoroTimer* parentTimer){
     this->m_cycle->setText(parentTimer->get_m_cycle_str());
 }
 
-void SegmentEditor::getInputs(double (&settings_arr)[5], bool convert){
+void SegmentEditor::getInputs(double (&settings_arr)[5], bool convert) const{
     settings_arr[0] = this->parentConfig->time_valid(this->study->text(), this->studyUnit->currentIndex(), convert);
     settings_arr[1] = this->parentConfig->time_valid(this->short_break->text(), this->short_break_unit->currentIndex(), convert);
     settings_arr[2] = this->parentConfig->time_valid(this->long_break->text(), this->long_break_unit->currentIndex(), convert);
@@ -98,7 +102,7 @@ void SegmentEditor::getInputs(double (&settings_arr)[5], bool convert){
     settings_arr[4] = static_cast<double>(this->parentConfig->cycles_valid(this->m_cycle->text()));
 }
 
-void SegmentEditor::get_units(int arr[3]){
+void SegmentEditor::get_units(int arr[3]) const{
     arr[0] = this->studyUnit->currentIndex();
     arr[1] = this->short_break_unit->currentIndex();
     arr[2] = this->long_break_unit->currentIndex();

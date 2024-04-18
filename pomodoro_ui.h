@@ -1,10 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #ifndef POMODORO_UI_H
 #define POMODORO_UI_H
 #include "widgets.h"
 #include "pomodoro_timer.h"
 #include "help_browser.h"
 #include "timerconfig.h"
-#include <QInputDialog>
 //Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
 /*QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -45,6 +48,7 @@ protected:
     //per online example, allows overriding window close/minimize events.
     void closeEvent(QCloseEvent *event) override;
 private:
+    const int LEN_LOOP = 200; //Length of loop_timer in ms.
     bool notify; //Marked if notifications are enabled.
     bool log_stdout;
     bool warned_tray = false; //Updated to true if/when notification is sent signaling program was closed to tray.
@@ -93,7 +97,7 @@ private slots:
     //Start Configuration
     void start_config();
     void finish_config();
-    void settings_to_preset();
+    void settings_to_preset(QAction*);
     void rename_preset(QAction*);
     void attempt_preset_load(QAction*);
     void attempt_preset_remove(QAction*);

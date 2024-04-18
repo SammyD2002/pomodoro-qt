@@ -1,5 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #ifndef HELP_BROWSER_H
 #define HELP_BROWSER_H
+//Skip the rest of the widgets.
 #include <QHelpEngineCore>
 #include <QUrl>
 #include <QtHelp/QHelpLink>
@@ -34,7 +39,6 @@ private:
     private:
         QVariant loadResource(int type, const QUrl &name) override;
     };
-
     static QHelpEngineCore* help;
     static help_viewer* viewer;
     //Need to implement method to override the way the textbrowser loads the help docs.

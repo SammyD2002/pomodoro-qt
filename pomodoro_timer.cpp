@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #include "pomodoro_timer.h"
 //Public Member Functions:
 PomodoroTimer::PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent) : QWidget(parent){
@@ -27,6 +31,7 @@ PomodoroTimer::PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_
     this->timerInfo = new PomodoroTimer::timerWrapper;
     this->timerInfo->timer = timer;
     this->applyPreset(preset);
+    connect(this->timerInfo->timer, &QTimer::timeout, this, &PomodoroTimer::change_segment);
 }
 
 bool PomodoroTimer::applyPreset(const QJsonObject *preset){
@@ -36,10 +41,10 @@ bool PomodoroTimer::applyPreset(const QJsonObject *preset){
     this->len_break_s = PresetManager::getSegmentLength((*preset)["len_break_s"]);
     //Assign the long break length.
     this->len_break_l = PresetManager::getSegmentLength((*preset)["len_break_l"]);
-    this->c_cycle = 0;
-    this->m_cycles = PresetManager::getPresetInt((*preset)["max_cycles"]);
-    this->c_pomodoros = 0;
-    this->m_pomodoros = PresetManager::getPresetInt((*preset)["max_pomodoros"]);
+    this->c_cycle = 1;
+    this->m_cycles = PresetManager::getJsonVal<int>((*preset)["max_cycles"]);
+    this->c_pomodoros = 1;
+    this->m_pomodoros = PresetManager::getJsonVal<int>((*preset)["max_pomodoros"]);
     this->titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
     this->messages = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
     this->c_limit_enabled = PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
@@ -76,7 +81,7 @@ void PomodoroTimer::constructSettingsJson(int units[3]){
     });
 }
 
-QJsonObject PomodoroTimer::getPresetJson(QString name){
+QJsonObject PomodoroTimer::getPresetJson(QString name) const{
     QJsonObject returning =  QJsonObject(*(this->currentPreset));
     returning["preset_name"] = name;
     return returning;
@@ -198,7 +203,7 @@ void PomodoroTimer::adjustSegment(int segment, int new_time){
 }
 //false=0, true=1
 //Method to get the program's status. 1 = studying, 2 = short break, 3 = long break. Integer is negative if timer is paused.
-int PomodoroTimer::getStatus(){
+int PomodoroTimer::getStatus() const{
     if(this->studying)
         return 1; //* (1 - (2 * int(this->timerInfo->timer->isActive()))); //Evaluates to -1 if timer is paused.
     else
@@ -216,7 +221,7 @@ int PomodoroTimer::getStatus(){
      *  <len_break_s>
      *  <len_break_l>
      */
-QString PomodoroTimer::constructOutput(QString template_string){
+QString PomodoroTimer::constructOutput(QString template_string) const{
     QString return_string(template_string); //Setup the copy of the template string.
     //Replace all occurences of current & maximum pomodoros/cycles.
     return_string = return_string.replace("<current_pomodoro>", QString(this->get_c_pom_str()), Qt::CaseInsensitive);
@@ -249,7 +254,7 @@ QString PomodoroTimer::constructOutput(QString template_string){
 }
 
 //Get a specific message based on the int passed as an arg.
-QString PomodoroTimer::getMessageTitle(int status){
+QString PomodoroTimer::getMessageTitle(int status) const{
     if (status <= 5 && status >= 0){
         if (this->titles[status].isEmpty())
             return this->constructOutput(this->DEFAULT_TITLES[status]);
@@ -259,7 +264,7 @@ QString PomodoroTimer::getMessageTitle(int status){
 }
 
 //Get a specific message based on the int passed as an arg.
-QString PomodoroTimer::getMessageTitleTemplate(int status){
+QString PomodoroTimer::getMessageTitleTemplate(int status) const{
     if (status <= 5 && status >= 0){
         if (this->titles[status].isEmpty())
             return this->DEFAULT_TITLES[status];
@@ -268,7 +273,7 @@ QString PomodoroTimer::getMessageTitleTemplate(int status){
     return NULL;
 }
 
-QString PomodoroTimer::getMessageBody(int status){
+QString PomodoroTimer::getMessageBody(int status) const{
     if(status <= 5 && status >= 0){
         if(this->messages[status].isEmpty())
             return this->constructOutput(this->DEFAULT_MESSAGES[status]);
@@ -279,7 +284,7 @@ QString PomodoroTimer::getMessageBody(int status){
         return QString("Status out of index?");
 }
 
-QString PomodoroTimer::getMessageBodyTemplate(int status){
+QString PomodoroTimer::getMessageBodyTemplate(int status) const{
     if(status <= 5 && status >= 0){
         if(this->messages[status].isEmpty())
             return this->DEFAULT_MESSAGES[status];

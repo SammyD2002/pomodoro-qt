@@ -1,6 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ */
 #ifndef POMODORO_TIMER_H
 #define POMODORO_TIMER_H
-#include <iostream>
 //Class must be derived from qobject for some reason.
 #include "widgets.h"
 #include "timerconfig.h"
@@ -12,82 +15,50 @@ class PomodoroTimer : public QWidget
     Q_OBJECT
 public:
     const QDateTime* ZERO_TIME = new QDateTime(QDate(1,1,1), QTime(0,0)); //Year/Month/Day 0 is invalid.
-    //TODO: Create constructor used to read from config file, or with defaults.
     //Constructor. Takes args for a timer, study time, etc.
     PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent);
+    //Alternate Constructor that takes a pointer to the default preset.
     PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_stdout, QWidget* parent);
-
     ~PomodoroTimer(); //This deletes the pointer to the timer wrapper.
-    QJsonObject settingsToJson(QString name);
-    //This function checks where we are in a cycle and resets the timer appropriatly.
+    QJsonObject settingsToJson(QString name) const;
+    //Start the session. Pass 'true' to display the restart message.
     void initCycle(bool);
     //Pauses the timer if it is running, resumes it if it is paused.
     void toggleTimer();
     //Method to get the program's status. 0 = studying, 1 = short break, 2 = long break.
-    int getStatus();
+    int getStatus() const;
     void resumeTimer();
     //Method to stop the timer
     void pauseTimer();
     //Get and set notifications.
-    QString getMessageTitle(int status);
-    QString getMessageTitleTemplate(int status);
-    QString getMessageBody(int status);
-    QString getMessageBodyTemplate(int status);
+    QString getMessageTitle(int status) const;
+    QString getMessageTitleTemplate(int status) const;
+    QString getMessageBody(int status) const;
+    QString getMessageBodyTemplate(int status) const;
     //Get Current Preset
-    QJsonObject getPresetJson(QString name);
+    QJsonObject getPresetJson(QString name) const;
     void constructSettingsJson(int units[3]);
     //Reset the session
     void ResetSession();
     void ResetSegment();
-    QString get_len_study_str(){
-        return QString::number(this->len_study);
-    }
-    QString get_len_break_s_str(){
-        return QString::number(this->len_break_s);
-    }
-    QString get_len_break_l_str(){
-        return QString::number(this->len_break_l);
-    }
-    QString get_c_pom_str(){
-        return QString::number(this->c_pomodoros);
-    }
-    QString get_c_cycle_str(){
-        return QString::number(this->c_cycle);
-    }
-    QString get_m_pom_str(){
-        return QString::number(this->m_pomodoros);
-    }
-    QString get_m_cycle_str(){
-        return QString::number(this->m_cycles);
-    }
-    int get_len_study_int(){
-        return this->len_study;
-    }
-    int get_len_break_s_int(){
-        return this->len_break_s;
-    }
-    int get_len_break_l_int(){
-        return this->len_break_l;
-    }
-    int get_c_cycle_int(){
-        return this->c_cycle;
-    }
-    int get_c_pom_int(){
-        return this->c_pomodoros;
-    }
-    int get_m_cycle_int(){
-        return this->m_cycles;
-    }
-    int get_m_pom_int(){
-        return this->m_pomodoros;
-    }
-    bool is_cycle_lim_enabled(){
-        return this->c_limit_enabled;
-    }
-    void toggle_log_stdout(bool nval){
-        this->log_stdout = nval;
-    }
-
+    //Getters that retrieve the value as a string or its native type.
+    QString get_len_study_str() const {return QString::number(this->len_study);}
+    QString get_len_break_s_str() const {return QString::number(this->len_break_s);}
+    QString get_len_break_l_str() const {return QString::number(this->len_break_l);}
+    QString get_c_pom_str() const {return QString::number(this->c_pomodoros);}
+    QString get_c_cycle_str() const {return QString::number(this->c_cycle);}
+    QString get_m_pom_str() const {return QString::number(this->m_pomodoros);}
+    QString get_m_cycle_str() const {return QString::number(this->m_cycles);}
+    int get_len_study_int() const {return this->len_study;}
+    int get_len_break_s_int() const {return this->len_break_s;}
+    int get_len_break_l_int() const {return this->len_break_l;}
+    int get_c_cycle_int() const {return this->c_cycle;}
+    int get_c_pom_int() const {return this->c_pomodoros;}
+    int get_m_cycle_int() const {return this->m_cycles;}
+    int get_m_pom_int() const {return this->m_pomodoros;}
+    bool is_cycle_lim_enabled() const {return this->c_limit_enabled;}
+    bool logging_stdout() const {return this->log_stdout;}
+    void toggle_log_stdout(bool nval){this->log_stdout = nval;}
 public slots:
     //Adjust segment length specified by int segment to int new_time in seconds.
     void adjustSegment(int segment, int new_time);
@@ -95,7 +66,6 @@ public slots:
     void setMessageBodies(bool updated[6], QString new_messages[6]);
     //Apply a preset from a QJsonObject passed as an argument:
     bool applyPreset(const QJsonObject* preset);
-
 signals:
     //Emitted when the current segment changes. The int signals the context of the change.
     //0 = Session started, 1 = study -> short break, 2 = study -> long break,
@@ -115,7 +85,6 @@ private:
     //Create Json for currentPreset that is updated with each edit to the timer.
     QJsonObject* currentPreset = NULL;
     bool log_stdout;
-
     //Timer vars
     //The cycle the program is currently on.
     int c_cycle;
@@ -146,12 +115,12 @@ private:
     */
     //NOTE: Only message titles can be set here due to the use of other vars in the message body.
     const QString DEFAULT_TITLES[6] = {
-        QString::fromStdString("Starting Study Session"),
-        QString::fromStdString("Study Segment Complete"),
-        QString::fromStdString("Study Cycle Complete"),
-        QString::fromStdString("Short Break Complete"),
-        QString::fromStdString("Study Session Complete"),
-        QString::fromStdString("Restarting Study Session")
+        QString("Starting Study Session"),
+        QString("Study Segment Complete"),
+        QString("Study Cycle Complete"),
+        QString("Short Break Complete"),
+        QString("Study Session Complete"),
+        QString("Restarting Study Session")
     };
     /* Strings to replace:
      * Number of x
@@ -165,19 +134,20 @@ private:
      *  <len_break_l>
      */
     const QString DEFAULT_MESSAGES[6] = {
-        QString::fromStdString("Good luck!"),
-        QString::fromStdString(("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!")),
-        QString::fromStdString(("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!")),
-        QString::fromStdString("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
-        QString::fromStdString("Congratulations! Hope you got a lot done!"),
-        QString::fromStdString("Time to get some more work done!")
+        QString("Good luck!"),
+        QString(("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!")),
+        QString(("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!")),
+        QString("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
+        QString("Congratulations! Hope you got a lot done!"),
+        QString("Time to get some more work done!")
     };
     //Current Notification message.
     QString* titles;
     QString* messages;
     //Methods
-    QString constructOutput(QString template_string);
+    QString constructOutput(QString template_string) const;
 private slots:
+    //This function checks where we are in a cycle and resets the timer appropriatly.
     void change_segment();
     //NOTE: start() automatically stops a running timer.
     void resetSegment(); //Reset the current segment's timer.

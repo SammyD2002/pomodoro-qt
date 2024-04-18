@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
+ * SPDX-License-Identifier:  AGPL-3.0-only
+ *
+ * This file houses methods used to display the timer configuration window, and apply changes to configuration.
+ */
 #include "timerconfig.h"
 //TODO: Add buttons to edit message text (welcome, study done, s & l break done, cycle done, session done).
 //REMINDER: Preset headers are commented out in .pro file.
@@ -14,11 +20,9 @@ TimerConfig::TimerConfig(PomodoroTimer* parentTimer) : TimerConfig(0, parentTime
     this->setupButtons();
     //Set the parentTimer variable.
     this->parentTimer = parentTimer;
-    connect(this->conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
-    connect(this->conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
     //Connect UI Actions
-    //connect(conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
-    //connect(conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
+    connect(conf_apply, &QPushButton::clicked, this, &TimerConfig::submit);
+    connect(conf_reset, &QPushButton::clicked, this, &TimerConfig::submit_and_restart);
     //Connect post submit actions
     connect(this, &TimerConfig::segment_updated, parentTimer, &PomodoroTimer::adjustSegment);
     connect(this, &TimerConfig::titles_updated, parentTimer, &PomodoroTimer::setMessageTitles);
@@ -59,7 +63,6 @@ void TimerConfig::setupButtons(QString conf_reset, QString conf_apply, QString a
     this->abort->setText(abort);
 }
 
-
 //Timer close override
 void TimerConfig::closeEvent(QCloseEvent *event){
     emit this->config_complete();
@@ -94,7 +97,7 @@ void TimerConfig::setup(){
  * m:s
  * m:s.z
  */
-QDateTime TimerConfig::input_is_formatted_time(QString in, int mode){ //Determine # of : to intelligently decide what type of time is being typed.
+QDateTime TimerConfig::input_is_formatted_time(QString in, int mode) const{ //Determine # of : to intelligently decide what type of time is being typed.
     QDateTime time = QDateTime::fromString(in, "h:m:s");
     if (time.isValid())
         return time;
@@ -139,7 +142,8 @@ bool TimerConfig::submit(){
     }
 
     if (all_good){
-        std::cout << "Attempting to apply changes..." << std::endl;
+        if (this->parentTimer->logging_stdout())
+            std::cout << "Attempting to apply changes..." << std::endl;
         if(this->apply_changes(new_vals, new_titles, new_messages)){
             this->close();
             return true;
@@ -197,7 +201,7 @@ void TimerConfig::submit_and_restart(){
 //TODO: Update this to detect times as hh:mm:ss & return a different integer. Only do this if dec is true.
 //NOTE: Other string chars only allowed if also in format.
 //0 is false, any other int is true.
-bool TimerConfig::input_is_int(QString in, bool dec){
+bool TimerConfig::input_is_int(QString in, bool dec) const{
     if (in.isEmpty())
         return 0;
     for(QString::const_iterator c = in.cbegin(); c != in.cend(); c++){
@@ -208,12 +212,13 @@ bool TimerConfig::input_is_int(QString in, bool dec){
 }
     //TODO: Implement hh:mm:ss time format
     //-1 = invalid input, -2 = input out of bounds, 0 = empty input, others
-double TimerConfig::time_valid(const QString in, int unit, bool convert){ //TODO: Prevent user from inputing more than 24 hours.
+double TimerConfig::time_valid(const QString in, int unit, bool convert) const{
     double new_time_d = TimerConfig::validate_time_string(in, unit);
     if (convert)
-        new_time_d = static_cast<double>(TimerConfig::convert_time(new_time_d, unit)); //If this is not updated, something has broken.
+        new_time_d = static_cast<double>(TimerConfig::convert_time(new_time_d, unit));
     return new_time_d;
 }
+
 int TimerConfig::convert_time(double time, int unit){
     int new_time = 0;
     switch(unit){ //Convert nums to smaller value until ms is reached.
@@ -231,7 +236,7 @@ int TimerConfig::convert_time(double time, int unit){
         return new_time;
 }
 
-double TimerConfig::validate_time_string(QString in, int unit){
+double TimerConfig::validate_time_string(QString in, int unit) const{
     //First, attempt to derive time as n s/m/h
     if (in.isEmpty())
         return 0;
@@ -246,7 +251,7 @@ double TimerConfig::validate_time_string(QString in, int unit){
         return in.toDouble();
 }
 
-int TimerConfig::cycles_valid(QString in){
+int TimerConfig::cycles_valid(QString in) const{
     if (!input_is_int(in, false))
         return 0;
     int new_count = in.toInt();

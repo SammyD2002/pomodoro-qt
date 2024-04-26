@@ -8,14 +8,18 @@ CONFIG += c++17
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+#DEFINES_DEBUG += QT_LOGGING_
+
 SOURCES += \
     help_browser.cpp \
+    log_handler.cpp \
     main.cpp \
     notification_editor.cpp \
     pomodoro_timer.cpp \
     #pomodoro_tray.cpp \
     pomodoro_ui.cpp \
     preset_editor.cpp \
+    preset_exceptions.cpp \
     preset_list.cpp \
     preset_manager.cpp \
     segment_editor.cpp \
@@ -23,9 +27,11 @@ SOURCES += \
 
 HEADERS += \
     help_browser.h \
+    log_handler.h \
     pomodoro_timer.h \
     #pomodoro_tray.h \
     pomodoro_ui.h \
+    preset_editor.h \
     preset_manager.h \
     timerconfig.h \
     widgets.h

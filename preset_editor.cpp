@@ -2,16 +2,23 @@
  * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
  * SPDX-License-Identifier:  AGPL-3.0-only
  */
-#include "timerconfig.h"
+#include "preset_editor.h"
 //Constructs the PresetEditor by calling the TimerConfig constructors before connecting the signals to the appropriate slots.
-PresetEditor::PresetEditor(PomodoroTimer* timer, QString preset_name, PresetManager* current_presets, QWidget* parent) : TimerConfig(1, parent){
+PresetEditor::PresetEditor(PomodoroTimer* timer, QString preset_name, PresetManager* current_presets, QWidget* parent, bool update_default) : TimerConfig(1, parent){
+    this->update_default = update_default;
     this->parentTimer = timer;
     this->preset_manager = current_presets;
-    int index = current_presets->findPreset(preset_name);
-    if (index >= 0)
-        this->original_preset = this->preset_manager->getPreset(index);
-    else
-        this->original_preset = NULL;
+    int index = -1;
+    if (this->update_default){
+        this->original_preset = this->preset_manager->getDefaultPreset();
+    }
+    else{
+        index = current_presets->findPreset(preset_name);
+        if (index >= 0)
+            this->original_preset = this->preset_manager->getPreset(index);
+        else
+            this->original_preset = NULL;
+    }
     this->preset_name_label = new QLabel("Preset Name");
     this->preset_name_title = new QLineEdit(this);
     this->s_edit = new PresetSegmentEditor(this);
@@ -21,7 +28,7 @@ PresetEditor::PresetEditor(PomodoroTimer* timer, QString preset_name, PresetMana
     this->setupButtons("Save and Apply Preset", "Save Preset");
     connect(this->conf_apply, &QPushButton::clicked, this, &PresetEditor::submit);
     connect(this->conf_reset, &QPushButton::clicked, this, &PresetEditor::submit_and_restart);
-    if(index >= 0){
+    if(this->update_default || index >= 0){
         this->s_edit->setPlaceholders(this->original_preset);
         this->message_edit->setPlaceholders(this->original_preset);
         this->title_edit->setPlaceholders(this->original_preset);
@@ -45,33 +52,108 @@ PresetEditor::~PresetEditor(){
 
 //Overloaded setPlaceholder methods for each tab to get the settings from a QJsonObject. These are NOT for the PresetEditor Subclasses.
 void SegmentEditor::setPlaceholders(const QJsonObject *preset){
+    //Get the name to check for early errors, and to use later for handling errors.
+    std::string preset_name;
+    try{
+        preset_name = (PresetManager::getJsonVal<QString>(preset->value("preset_name"))).toStdString();
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error();
+    }
     //Set the bool here early.
-    bool check = (*preset)["cycle_lim_enabled"].toBool();
-    check = !check;
-    this->studyUnit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_study"].toArray()[1]));
-    this->study->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_study"]), this->studyUnit->currentIndex()));
-
-    this->short_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_s"].toArray()[1]));
-    this->short_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_s"]), this->short_break_unit->currentIndex()));
-
-    this->long_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_l"].toArray()[1]));
-    this->long_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_l"]), this->long_break_unit->currentIndex()));
-
-    this->p_per_c->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_pomodoros"])));
-    this->m_cycle->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_cycles"])));
-    this->m_cycle_enabled->setChecked(check);
+    try{
+        bool check = !PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
+        this->m_cycle_enabled->setChecked(check);
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "cycle_lim_enabled", ex);
+    }
+    try{
+        this->studyUnit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_study"].toArray()[1]));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_study[1]", ex);
+    }
+    try{
+        this->study->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_study"]), this->studyUnit->currentIndex()));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_study[0]", ex);
+    }
+    try{
+        this->short_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_s"].toArray()[1]));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_break_s[1]", ex);
+    }
+    try{
+        this->short_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_s"]), this->short_break_unit->currentIndex()));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_break_s[0]", ex);
+    }
+    try{
+        this->long_break_unit->setCurrentIndex(PresetManager::getJsonVal<int>((*preset)["len_break_l"].toArray()[1]));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_break_l[1]", ex);
+    }
+    try{
+        this->long_break->setText(ms_to_unit(PresetManager::getSegmentLength((*preset)["len_break_l"]), this->long_break_unit->currentIndex()));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "len_break_l[0]", ex);
+    }
+    try{
+        this->p_per_c->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_pomodoros"])));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "max_pomodoros", ex);
+    }
+    try{
+        this->m_cycle->setText(QString::number(PresetManager::getJsonVal<int>((*preset)["max_cycles"])));
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "max_cycles", ex);
+    }
 }
 
 void NotificationEditor::setPlaceholders(const QJsonObject *preset){
-    QString* titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
-    for(int i = 0; i < 6; i++)
-        this->title_inputs[i]->setText(titles[i]);
+    //First, make sure preset name is present.
+    std::string preset_name;
+    try{
+        preset_name = PresetManager::getJsonVal<QString>(preset->value("preset_name")).toStdString();
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error();
+    }
+    try{
+        QString* titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
+        for(int i = 0; i < 6; i++)
+            this->title_inputs[i]->setText(titles[i]);
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "notification_titles", ex);
+    }
 }
 
 void MessageEditor::setPlaceholders(const QJsonObject *preset){
-    QString* titles = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
-    for (int i = 0; i < 6; i++)
-        this->title_inputs[i]->setText(titles[i]);
+    //First, make sure preset name is present.
+    std::string preset_name;
+    try{
+        preset_name = PresetManager::getJsonVal<QString>(preset->value("preset_name")).toStdString();
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error();
+    }
+    try{
+        QString* titles = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
+        for (int i = 0; i < 6; i++)
+            this->title_inputs[i]->setText(titles[i]);
+    }
+    catch (PresetManager::json_value_error &ex){
+        throw PresetManager::preset_error(preset_name, "notification_messages", ex);
+    }
 }
 
 //Slots
@@ -96,7 +178,7 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
     else
         preset = this->preset_name_title->text().trimmed();
     if (this->parentTimer->logging_stdout())
-        std::cout << "Applying edits to preset " << qPrintable(preset) << std::endl;
+        qDebug("%s", QString(QString("Applying edits to preset ") + preset).toStdString().c_str());
     /* Now obselete, check performed in update function.
     int preset_index = this->preset_manager->findPreset(preset);
     if (preset_index >= 0 && preset != (*(this->original_preset))["preset_name"].toString())
@@ -123,10 +205,16 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
     };
     //Update the timer preset
      //preset == enables overwriting a preset with the same name.
-    bool ok = this->preset_manager->update_preset(new_preset, preset == original_name);
-    if(!ok){
-        emit this->request_overwrite("Preset " + preset + " exists.", "Overwrite it?", ok);
-        ok = this->preset_manager->update_preset(new_preset, ok);
+    bool ok;
+    if (!update_default){
+        ok = this->preset_manager->update_preset(original_name, new_preset, preset == original_name);
+        if(!ok){
+            emit this->request_overwrite("Preset " + preset + " exists.", "Overwrite it?", ok);
+            ok = this->preset_manager->update_preset(original_name, new_preset, ok);
+        }
+    }
+    else{
+        ok = this->preset_manager->update_default_preset(new_preset);
     }
     if(ok){
         this->new_preset = new QJsonObject(new_preset); //Makes a copy of the newly updated preset.

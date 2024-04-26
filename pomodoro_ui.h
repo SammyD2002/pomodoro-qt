@@ -8,6 +8,7 @@
 #include "pomodoro_timer.h"
 #include "help_browser.h"
 #include "timerconfig.h"
+#include "preset_editor.h"
 //Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
 /*QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -32,15 +33,13 @@ class PomodoroUI : public QWidget
     Q_OBJECT
 
 public:
-    PomodoroUI(QWidget *parent = nullptr);
+    PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_preset, QWidget *parent = nullptr);
 //static help* timer_help;
     //PomodoroUI(bool log_stdout = false);
     //Overloaded function for user-determined time frames.
     //PomodoroUI(QWidget *parent = nullptr, bool notify = true, bool log_stdout = false);
     ~PomodoroUI();
 public slots:
-    void preset_added(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def);
-    void preset_removed(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def);
     void prompt_confirmation(QString Title, QString Message, bool &result, QString accept = QString("Yes"), QString reject = QString("No"));
 signals:
     void get_help();
@@ -69,11 +68,12 @@ private:
     std::string status[2];
     //Object to handle loading and saving of presets.
     PresetManager* preset_manager;
-    QMenu* load_preset_menu;
+    QMenu* preset_menus[6];
+    /*QMenu* load_preset_menu;
     QMenu* del_preset_menu;
     QMenu* edit_preset_menu;
     QMenu* rename_preset_menu;
-    QMenu* new_default_preset_menu;
+    QMenu* new_default_preset_menu;*/
     //QMenu* edit_preset_menu;
     //QMenu* rename_preset_menu;
     //Actions for menus
@@ -103,6 +103,9 @@ private slots:
     void attempt_preset_remove(QAction*);
     void attempt_preset_edit(QAction*);
     void attempt_update_default(QAction*);
+    //Update the entries in the preset menu.
+    void preset_added(QAction* set[6]);
+    void preset_removed(QAction* set[6]);
     /*void update_study(int);
     void update_break_short(int);
     void update_break_long(int);

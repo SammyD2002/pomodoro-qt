@@ -142,8 +142,7 @@ bool TimerConfig::submit(){
     }
 
     if (all_good){
-        if (this->parentTimer->logging_stdout())
-            std::cout << "Attempting to apply changes..." << std::endl;
+        qDebug("Preset validated. Attempting to apply changes...");
         if(this->apply_changes(new_vals, new_titles, new_messages)){
             this->close();
             return true;
@@ -188,7 +187,7 @@ bool TimerConfig::apply_changes(double new_vals[5], QString (&new_titles)[6], QS
     emit this->messages_updated(m_updated, new_messages);
     int units[3];
     this->s_edit->get_units(units);
-    this->parentTimer->constructSettingsJson(units);
+    this->parentTimer->constructSettingsJson(units, this->parentTimer->getRunningPresetName());
     return true;
 }
 

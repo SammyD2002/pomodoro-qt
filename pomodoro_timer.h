@@ -6,7 +6,6 @@
 #define POMODORO_TIMER_H
 //Class must be derived from qobject for some reason.
 #include "widgets.h"
-#include "timerconfig.h"
 #include "preset_manager.h"
 class QTimer;
 class QDateTime;
@@ -37,7 +36,8 @@ public:
     QString getMessageBodyTemplate(int status) const;
     //Get Current Preset
     QJsonObject getPresetJson(QString name) const;
-    void constructSettingsJson(int units[3]);
+    QString* getRunningPresetName() const;
+    void constructSettingsJson(int units[3], QString *name = nullptr);
     //Reset the session
     void ResetSession();
     void ResetSegment();

@@ -37,5 +37,10 @@
 #include <QHelpFilterEngine>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QtLogging>
+#include <QLoggingCategory>
+#include <QThread>
+#include <QCommandLineParser>
+#include <QStandardPaths>
 
 #endif // WIDGETS_H

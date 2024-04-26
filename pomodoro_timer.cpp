@@ -35,25 +35,80 @@ PomodoroTimer::PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_
 }
 
 bool PomodoroTimer::applyPreset(const QJsonObject *preset){
-    //Assign the study length.
-    this->len_study = PresetManager::getSegmentLength((*preset)["len_study"]);
-    //Assign the short break length.
-    this->len_break_s = PresetManager::getSegmentLength((*preset)["len_break_s"]);
-    //Assign the long break length.
-    this->len_break_l = PresetManager::getSegmentLength((*preset)["len_break_l"]);
-    this->c_cycle = 1;
-    this->m_cycles = PresetManager::getJsonVal<int>((*preset)["max_cycles"]);
-    this->c_pomodoros = 1;
-    this->m_pomodoros = PresetManager::getJsonVal<int>((*preset)["max_pomodoros"]);
-    this->titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
-    this->messages = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
-    this->c_limit_enabled = PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
-    //If we made it here, the invalid argument exception was NOT thrown. proceed with updateing the preset pointer.
-    if(this->currentPreset != NULL)
-        delete this->currentPreset;
-    //(Hopefully) Create a copy of the Preset.
-    this->currentPreset = new QJsonObject(*(preset));
-    return true;
+    QJsonObject* preset_copy = new QJsonObject(*(preset));
+    try{
+        std::string preset_name;
+        try{
+            preset_name = PresetManager::getJsonVal<QString>(preset->value("preset_name")).toStdString();
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error();
+        }
+        try{
+            //Assign the study length.
+            this->len_study = PresetManager::getSegmentLength((*preset)["len_study"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "len_study", ex);
+        }
+        try{
+            //Assign the short break length.
+            this->len_break_s = PresetManager::getSegmentLength((*preset)["len_break_s"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "len_break_s", ex);
+        }
+        //Assign the long break length.
+        try{
+            this->len_break_l = PresetManager::getSegmentLength((*preset)["len_break_l"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "len_break_l", ex);
+        }
+        this->c_cycle = 1;
+        try{
+            this->m_cycles = PresetManager::getJsonVal<int>((*preset)["max_cycles"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "max_cycles", ex);
+        }
+        this->c_pomodoros = 1;
+        try{
+            this->m_pomodoros = PresetManager::getJsonVal<int>((*preset)["max_pomodoros"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "max_pomodoros", ex);
+        }
+        try{
+            this->titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "notification_titles", ex);
+        }
+        try{
+            this->messages = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "notification_messages", ex);
+        }
+        try{
+            this->c_limit_enabled = PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
+        }
+        catch (PresetManager::json_value_error &ex){
+            throw PresetManager::preset_error(preset_name, "cycle_lim_enabled", ex);
+        }
+        //If we made it here, the json_value_error exception was NOT thrown. proceed with updateing the preset pointer.
+        if(this->currentPreset != NULL)
+            delete this->currentPreset;
+        //(Hopefully) Create a copy of the Preset.
+        this->currentPreset = preset_copy;
+        return true;
+    }
+    catch (PresetManager::preset_error &err){
+        delete preset_copy;
+        this->applyPreset(this->currentPreset);
+        throw PresetManager::preset_error(err);
+    }
 }
 
 PomodoroTimer::~PomodoroTimer(){
@@ -61,7 +116,9 @@ PomodoroTimer::~PomodoroTimer(){
     delete (this->currentPreset);
 }
 
-void PomodoroTimer::constructSettingsJson(int units[3]){
+void PomodoroTimer::constructSettingsJson(int units[3], QString* name){
+    if (!name)
+        name = new QString("FALLBACK");
     QJsonArray titles;
     QJsonArray messages;
     for(int i = 0; i < 6; i++){
@@ -69,7 +126,7 @@ void PomodoroTimer::constructSettingsJson(int units[3]){
         messages.append(this->messages[i]);
     }
     this->currentPreset = new QJsonObject({
-        {"preset_name", QString("")},
+        {"preset_name", *name},
         {"len_study", QJsonArray({(static_cast<double>(this->len_study) / TimerConfig::UNIT_MULT[units[0]]), units[0]})}, //length, unit.
         {"len_break_s", QJsonArray({(static_cast<double>(this->len_break_s) / TimerConfig::UNIT_MULT[units[1]]), units[1]})},
         {"len_break_l", QJsonArray({(static_cast<double>(this->len_break_l) / TimerConfig::UNIT_MULT[units[2]]), units[2]})},
@@ -79,14 +136,26 @@ void PomodoroTimer::constructSettingsJson(int units[3]){
         {"notification_titles", titles},
         {"notification_messages", messages}
     });
+    delete name; //Prevents memory leaks!
 }
 
 QJsonObject PomodoroTimer::getPresetJson(QString name) const{
     QJsonObject returning =  QJsonObject(*(this->currentPreset));
-    returning["preset_name"] = name;
+    //returning["preset_name"] = name;
     return returning;
 }
-
+//Copies the name of the running timer to a newly allocated string.
+QString* PomodoroTimer::getRunningPresetName() const{
+    if (this->currentPreset){ //If the current preset is defined:
+        try{
+            return new QString(PresetManager::getJsonVal<QString>(this->currentPreset->value("preset_name")));
+        }
+        catch (PresetManager::json_value_error){
+            return new QString("UNDEFINED");
+        }
+    }
+    return nullptr;
+}
 
 void PomodoroTimer::initCycle(bool reset){
     this->timerInfo->timer->start(this->len_study);
@@ -102,47 +171,40 @@ void PomodoroTimer::initCycle(bool reset){
         emit this->segment_changed(0);
     }
 }
-
+//Called when the main timer elapses.
 void PomodoroTimer::change_segment(){
     //Conditions met if study timer runs out.
     if (this->studying){
-        if (this->log_stdout)
-            std::cout << "Done studying..." << std::endl;
+        qInfo("Done studying...");
         this->studying = false;
         if(this->c_pomodoros < this->m_pomodoros){
-            if(this->log_stdout)
-                std::cout << "Starting Short Break..." << std::endl;
+            qInfo("Starting Short Break...");
             this->timerInfo->timer->start(this->len_break_s);
             emit this->segment_changed(1);
         }
         else{
-            if(this->log_stdout)
-                std::cout << "Starting Long Break..." << std::endl;
+            qInfo("Starting Long Break...");
             this->timerInfo->timer->start(this->len_break_l);
             emit this->segment_changed(2);
         }
     }
     else{
-        if (this->log_stdout)
-            std::cout << "Back studying..." << std::endl;
+        qInfo("Back studying...");
         this->studying = true;
         if(this->c_pomodoros < this->m_pomodoros){
-            if(this->log_stdout)
-                std::cout << "Incrementing pomodoro count..." << std::endl;
+            qInfo("Incrementing pomodoro count...");
             this->timerInfo->timer->start(this->len_study);
             this->c_pomodoros++;
             emit this->segment_changed(3);
         }
         else if (this->c_limit_enabled && this->c_cycle >= this->m_cycles){ //If this is true, stop and send message.
-            if(this->log_stdout)
-                std::cout << "Cycle limit reached. Stopping..." << std::endl;
+            qInfo("Cycle limit reached. Stopping...");
             this->c_cycle = 0;
             this->timerInfo->timer->stop();
             emit this->segment_changed(4);
         }
         else{
-            if(this->log_stdout)
-                std::cout << "End of cycle reached. Resetting pomodoro count..." << std::endl;
+            qInfo("End of cycle reached. Resetting pomodoro count...");
             this->timerInfo->timer->start(this->len_study);
             this->c_pomodoros = 1;
             this->c_cycle++;
@@ -211,6 +273,8 @@ int PomodoroTimer::getStatus() const{
 }
 
 /* Strings to replace:
+     * Name of x
+     *  <preset>: The name of the most recently loaded preset. (Loading preset a, then editing the timer will still print a.)
      * Number of x
      *  <current_pomodoro>: The current pomodoro
      *  <pomodoros_per_cycle>: The number of pomodoros in each cycle.
@@ -235,6 +299,8 @@ QString PomodoroTimer::constructOutput(QString template_string) const{
     double study = static_cast<double>(this->get_len_study_int());
     double break_s = static_cast<double>(this->get_len_break_s_int());
     double break_l = static_cast<double>(this->get_len_break_l_int());
+    return_string = return_string.replace("<preset>",
+        PresetManager::getJsonVal<QString>((*this->currentPreset)["preset_name"]), Qt::CaseInsensitive);
     return_string = return_string.replace("<len_study/s>", QString::number(study / 1000.0), Qt::CaseInsensitive);
     return_string = return_string.replace("<len_study/m>", QString::number(study / 60000.0), Qt::CaseInsensitive);
     return_string = return_string.replace("<len_study/h>", QString::number(study / 360000.0), Qt::CaseInsensitive);

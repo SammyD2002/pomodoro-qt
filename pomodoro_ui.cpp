@@ -1,24 +1,26 @@
 /*
  * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
  * SPDX-License-Identifier:  AGPL-3.0-only
+ * TODO: Create Notifier object to handle notifications.
  */
 #include "pomodoro_ui.h"
 //#include "ui_pomodoro_ui.h"
-PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
+PomodoroUI::PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_preset, QWidget *parent): QWidget(parent){
 //Timer Setup
     //Event loops
+    this->log_stdout = false;
     this->main_timer = new QTimer(this);
     this->loop_timer = new QTimer(this);
     //Setup the preset manager object.
-    this->preset_manager = new PresetManager(QString(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)), this);
+    this->preset_manager = preset_manager;
+    this->preset_manager->setParent(this);
     //Initialize the Pomodoro Cycle & set log_stdout and notify appropriatly.
     try{
-        this->cycle = new PomodoroTimer(main_timer, this->preset_manager->getDefaultPreset(), log_stdout, this);
+        this->cycle = new PomodoroTimer(main_timer, starting_preset, log_stdout, this);
     }
-    catch (std::invalid_argument &ex){
+    catch (PresetManager::preset_error &ex){
         delete this->cycle;
-        if (log_stdout)
-            std::cout << "Json was not parsed. Reverting to default settings..." << std::endl;
+        qCritical("%s%s", ex.what(), " Reverting to default settings...");
         int units[3] = {1,1,1};
         this->cycle = new PomodoroTimer(main_timer, 25.0, 5.0, 15.0, units, 2, 4, log_stdout, true, this);
     }
@@ -46,12 +48,13 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
     create_preset->addAction(save_current);
     QAction* save_default = new QAction(tr("From &Default Settings..."));
     create_preset->addAction(save_default);
-    this->load_preset_menu = presetMenu->addMenu(tr("&Load Preset"));
-    this->del_preset_menu = presetMenu->addMenu(tr("&Remove Preset"));
-    this->edit_preset_menu = presetMenu->addMenu(tr("&Edit Preset"));
-    this->rename_preset_menu = presetMenu->addMenu(tr("Re&name Preset"));
-    this->new_default_preset_menu = presetMenu->addMenu(tr("Co&py Preset to Default Settings"));
-    this->preset_manager->populate_preset_menu_entries(load_preset_menu, del_preset_menu, edit_preset_menu, rename_preset_menu, new_default_preset_menu);
+    this->preset_menus[0] = presetMenu->addMenu(tr("&Load Preset"));
+    this->preset_menus[1] = presetMenu->addMenu(tr("&Remove Preset"));
+    this->preset_menus[2] = presetMenu->addMenu(tr("&Edit Preset"));
+    this->preset_menus[3] = presetMenu->addMenu(tr("Re&name Preset"));
+    this->preset_menus[4] = presetMenu->addMenu(tr("Co&py Preset to Default Settings"));
+    this->preset_menus[5] = create_preset->addMenu(tr("From &Existing Preset"));
+    this->preset_manager->populate_preset_menu_entries(this->preset_menus);
     this->SetupMenus();
     //Main Window Context Menu
     this->top_bar = new QMenuBar(this);
@@ -82,13 +85,13 @@ PomodoroUI::PomodoroUI(QWidget *parent): QWidget(parent){
         connect(cycle, &PomodoroTimer::segment_changed, this, &PomodoroUI::notify_session);
     }
     //Connect the preset menu methods:
-    connect(this->load_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_load);
+    connect(this->preset_menus[0], &QMenu::triggered, this, &PomodoroUI::attempt_preset_load);
     connect(create_preset, &QMenu::triggered, this, &PomodoroUI::settings_to_preset);
-    connect(this->del_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_remove);
-    connect(this->edit_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_preset_edit);
+    connect(this->preset_menus[1], &QMenu::triggered, this, &PomodoroUI::attempt_preset_remove);
+    connect(this->preset_menus[2], &QMenu::triggered, this, &PomodoroUI::attempt_preset_edit);
     connect(this->preset_manager, &PresetManager::presetLoaded, this->cycle, &PomodoroTimer::applyPreset);
-    connect(this->rename_preset_menu, &QMenu::triggered, this, &PomodoroUI::rename_preset);
-    connect(this->new_default_preset_menu, &QMenu::triggered, this, &PomodoroUI::attempt_update_default);
+    connect(this->preset_menus[3], &QMenu::triggered, this, &PomodoroUI::rename_preset);
+    connect(this->preset_menus[4], &QMenu::triggered, this, &PomodoroUI::attempt_update_default);
     //Connect methods called for presets being added/removed.
     connect(this->preset_manager, &PresetManager::preset_added, this, &PomodoroUI::preset_added);
     connect(this->preset_manager, &PresetManager::preset_removed, this, &PomodoroUI::preset_removed);
@@ -136,7 +139,7 @@ void PomodoroUI::SetupMenus(){
     tray_actions->addAction(session_restart);
     tray_actions->addSeparator();
     //Load Preset [NOT IN ARRAY]. Simply added to the tray's context menu.
-    tray_actions->addMenu(this->load_preset_menu);
+    tray_actions->addMenu(this->preset_menus[0]);
     tray_actions->addSeparator();
     //Exit Program [4]
     QAction* exit_program = new QAction(tr("&Exit"), this);
@@ -170,8 +173,7 @@ void PomodoroUI::toggled(bool paused){
 //3 = x break -> study, 4 = session over, 5 = session restart.
 void PomodoroUI::update_segment(int status){
     //Update various icons.
-    if (this->log_stdout)
-        std::cout << "Updating segment..." << std::endl;
+    qDebug("Updating segment...");
     if(status == 0 || status || 5)
         this->loop_timer->start(this->LEN_LOOP); //Restart the loop timer if not running.
     if (status == 0 || status == 3 || status == 5){
@@ -203,8 +205,7 @@ void PomodoroUI::update_timer_display(){
     QString output = remTime.toString("hh:mm:ss");
     if (this->cycle->ZERO_TIME->date().daysTo(remTime.date()) >= 1)
         output = QString::number(this->cycle->ZERO_TIME->date().daysTo(remTime.date())) + ":" + output;
-    if(this->log_stdout)
-        std::cout << qPrintable(output) << std::endl;
+    //qDebug("%s", output.toStdString().c_str());
     this->clock->setText(QString("Time Left in Segment:\n").append(output));
     //Set the tooltip for the tray icon.
     this->UpdateTrayTooltip();
@@ -272,6 +273,7 @@ void PomodoroUI::finish_config(){
 }
 //Slot used to quit the program from a menu option.
 void PomodoroUI::quitting(){
+    qInfo("%s", "Exitting...");
     QCoreApplication::quit();
 }
 //Called to prompt user to name a new preset from the current settings.
@@ -279,8 +281,17 @@ void PomodoroUI::settings_to_preset(QAction * entry){
     QJsonObject curr_settings;
     if (entry->text() == tr("From &Current Settings..."))
         curr_settings = this->cycle->getPresetJson("");
-    else
+    else if (entry->text() == tr("From &Default Settings..."))
         curr_settings = *(this->preset_manager->getDefaultPreset());
+    else
+        curr_settings = *(this->preset_manager->getPreset(entry->text()));
+    try{
+        PresetManager::validate_preset(&curr_settings);
+    }
+    catch (PresetManager::preset_error &err){
+        qCritical("%s", err.what());
+        return;
+    }
     bool ok;
     QString text;
     do{
@@ -292,10 +303,10 @@ void PomodoroUI::settings_to_preset(QAction * entry){
         ok = !(text.trimmed().isEmpty());
         if(ok){
             curr_settings["preset_name"] = text;
-            if (!this->preset_manager->update_preset(curr_settings)){
+            if (!this->preset_manager->create_preset(curr_settings)){
                 this->prompt_confirmation("Preset " + text.trimmed() + " exists.", "Overwrite it?", ok);
                 if (ok)
-                    this->preset_manager->update_preset(curr_settings, true);
+                    this->preset_manager->create_preset(curr_settings, true);
             }
         }
     } while (ok == false);
@@ -344,62 +355,68 @@ void PomodoroUI::rename_preset(QAction* event){
 }
 //Is the QAction::menu() unique per sender? Yes, but not relevant here.
 //These functions are called when a preset is added/remove, and adds/removes the appropriate menu option.
-void PomodoroUI::preset_added(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def){
-    this->load_preset_menu->addAction(load);
-    this->del_preset_menu->addAction(del);
-    this->edit_preset_menu->addAction(edit);
-    this->rename_preset_menu->addAction(ren);
-    this->new_default_preset_menu->addAction(def);
+void PomodoroUI::preset_added(QAction *set[6]){
+    for (int i = 0; i < 6; i++)
+        this->preset_menus[i]->addAction(set[i]);
 }
-void PomodoroUI::preset_removed(QAction* load, QAction* del, QAction* edit, QAction* ren, QAction* def){
-    this->load_preset_menu->removeAction(load);
-    this->del_preset_menu->removeAction(del);
-    this->edit_preset_menu->removeAction(edit);
-    this->rename_preset_menu->removeAction(ren);
-    this->new_default_preset_menu->removeAction(def);
+
+void PomodoroUI::preset_removed(QAction *set[6]){
+    for (int i = 0; i < 6; i++)
+        this->preset_menus[i]->removeAction(set[i]);
 }
 //Attempts to load the preset specified by the user in a menu.
 //Checks if the default preset was selected by comparing the triggered action to the known default entry in the menu.
 //If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_load(QAction* entry){
-    QList<QAction*> entryList = this->load_preset_menu->actions();
-    if(entry == entryList[0]){
-        if (this->preset_manager->load_default_preset())
+    QList<QAction*> entryList = this->preset_menus[0]->actions();
+    try{
+        if(entry == entryList[0]){
+            qDebug("Loading default preset...");
+            if (this->preset_manager->load_default_preset())
+                this->cycle->ResetSession();
+            return;
+        }
+        qDebug("%s %s", "Loading preset", entry->text().trimmed().toStdString().c_str());
+        if(this->preset_manager->loadPreset(entry->text().trimmed()))
             this->cycle->ResetSession();
-        return;
     }
-    if(this->preset_manager->loadPreset(entry->text().trimmed()))
-        this->cycle->ResetSession();
+    catch (PresetManager::preset_error &ex){
+        qCritical("%s",ex.what());
+    }
 }
 //Attempts to remove the preset specified by the user in a menu.
 //If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_remove(QAction* entry){
     if (!(this->preset_manager->removePreset(entry->text().trimmed()))){
-        if(this->log_stdout)
-            std::cout << "Failed to remove entry " << qPrintable(entry->text().trimmed()) << std::endl;
+        qCritical("%s", QString("Failed to remove entry " + entry->text().trimmed()).toStdString().c_str());
     }
 }
 
 //Starts the preset editor with the user selected preset. Does not stop timer while doing this.
 //If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_preset_edit(QAction* entry){
+    QList<QAction*> entryList = this->preset_menus[2]->actions();
     PresetEditor* editor;
     try{
-        editor = new PresetEditor(this->cycle, entry->text().trimmed(), this->preset_manager, this);
+        editor = new PresetEditor(this->cycle, entry->text().trimmed(), this->preset_manager, this, entry == entryList.first());
         connect(editor, &PresetEditor::request_overwrite, this, &PomodoroUI::prompt_confirmation);
         editor->exec();
+        editor->deleteLater();
     }
-    catch (std::invalid_argument &ex){
-        if (this->log_stdout)
-            std::cout << ex.what() << std::endl;
+    catch (PresetManager::preset_error &ex){
+        qCritical("%s", ex.what());
     }
-    delete editor;
 }
 //Copies the selected preset to the default entry.
 //If the preset doesn't exist, which should never be the case, nothing happens.
 void PomodoroUI::attempt_update_default(QAction* entry){
-    if (!(this->preset_manager->update_default_preset(entry->text().trimmed())) && this->log_stdout)
-        std::cout << "Default Preset was not updated." <<  std::endl;
+	try{
+        if (!(this->preset_manager->update_default_preset(entry->text().trimmed())))
+            qDebug("Default Preset was not updated, but appeared to be valid.");
+	}
+	catch (PresetManager::preset_error &ex){
+        qCritical("%s%s", ex.what(), ". The Default preset was not updated.");
+	}
 }
 //Creates a dialog titled <Title> with the Message <Message>.
 //They are given two options, <accept> or <reject>. The result is saved to <ok>.

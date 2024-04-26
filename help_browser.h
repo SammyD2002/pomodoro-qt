@@ -26,6 +26,8 @@ public:
     static void load_help(QString component, QWidget* parent);
     //Updates the parent widget of the viewer to allow for it to be used during the modal timer config dialog.
 private:
+    //Default constructor to prevent object from being created outside of the setup_help function.
+    help_browser() {}
     //member functions
     static bool setup_help();
     //Load file from QUrl

@@ -195,8 +195,8 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
     QJsonObject new_preset = {
         {"preset_name", preset},
         {"len_study", QJsonArray({new_vals[0], units[0]})},
-        {"len_break_l", QJsonArray({new_vals[1], units[1]})},
-        {"len_break_s", QJsonArray({new_vals[2], units[2]})},
+        {"len_break_s", QJsonArray({new_vals[1], units[1]})},
+        {"len_break_l", QJsonArray({new_vals[2], units[2]})},
         {"max_pomodoros", new_vals[3]},
         {"cycle_lim_enabled", check},
         {"max_cycles", new_vals[4]},

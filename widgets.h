@@ -2,9 +2,11 @@
  * SPDX-FileCopyrightText: © 2024 - Samuel Fincher <Smfincher@yahoo.com>
  * SPDX-License-Identifier:  AGPL-3.0-only
  */
+//Includes widgets used in onther parts of the application.
 #ifndef WIDGETS_H
 #define WIDGETS_H
 #include <iostream>
+#include <sstream>
 #include <QDialog>
 #include <QMainWindow>
 #include <QCoreApplication>
@@ -42,5 +44,7 @@
 #include <QThread>
 #include <QCommandLineParser>
 #include <QStandardPaths>
+#include <QMap>
+#include <QFileDialog>
 
 #endif // WIDGETS_H

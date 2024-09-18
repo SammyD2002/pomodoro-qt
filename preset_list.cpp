@@ -19,7 +19,7 @@ int PresetManager::findPreset(QString preset_name) const{
 bool PresetManager::loadPreset(QString ps_name){
     int index = this->findPreset(ps_name);
     if (index >= 0){
-        emit this->presetLoaded(new QJsonObject((*(this->presets))[index].toObject()));
+        emit this->presetLoaded(this->presets->at(index).toObject());
         return true;
     }
     return false;

@@ -15,9 +15,9 @@ class PomodoroTimer : public QWidget
 public:
     const QDateTime* ZERO_TIME = new QDateTime(QDate(1,1,1), QTime(0,0)); //Year/Month/Day 0 is invalid.
     //Constructor. Takes args for a timer, study time, etc.
-    PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent);
+    PomodoroTimer(double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool c_lim, QWidget* parent);
     //Alternate Constructor that takes a pointer to the default preset.
-    PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_stdout, QWidget* parent);
+    PomodoroTimer(const QJsonObject* preset, QWidget* parent);
     ~PomodoroTimer(); //This deletes the pointer to the timer wrapper.
     QJsonObject settingsToJson(QString name) const;
     //Start the session. Pass 'true' to display the restart message.
@@ -35,13 +35,52 @@ public:
     QString getMessageBody(int status) const;
     QString getMessageBodyTemplate(int status) const;
     //Get Current Preset
-    QJsonObject getPresetJson(QString name) const;
+    QJsonObject getPresetJson() const;
     QString* getRunningPresetName() const;
     void constructSettingsJson(int units[3], QString *name = nullptr);
     //Reset the session
     void ResetSession();
     void ResetSegment();
-    //Getters that retrieve the value as a string or its native type.
+    //Gets time left on the timer.
+    QString getTimeRemaining(){
+        /*QDateTime remTime;
+        if(this->timerInfo->timer->isActive())
+            remTime = this->ZERO_TIME->addMSecs((this->timerInfo->timer->remainingTime() / 1000) * 1000);
+        else
+            remTime = this->ZERO_TIME->addMSecs((this->timerInfo->rem / 1000) * 1000);
+        */
+        QDateTime remTime = this->ZERO_TIME->addMSecs((this->timerInfo->timer->remainingTime() / 1000) * 1000);
+        QString output = remTime.toString("hh:mm:ss");
+        if (this->ZERO_TIME->date().daysTo(remTime.date()) >= 1)
+            output = QString::number(this->ZERO_TIME->date().daysTo(remTime.date())) + ":" + output;
+        return output;
+    }
+    int getPercentElapsed(){
+        //Unchanged if segment = 3.
+        float rem = 0;
+        float dur = 1;
+        if(this->timerInfo->timer->isActive())
+            rem = this->timerInfo->timer->remainingTime();
+        else
+            rem = this->timerInfo->rem;
+        switch (this->getCurrentSegment()){
+        case 0:
+            //studying
+            dur = this->len_study;
+            break;
+        case 1:
+            //s_break
+            dur = this->len_break_s;
+            break;
+        case 2:
+            //l_break
+            dur = this->len_break_l;
+            break;
+        }
+        return 100 - ((rem/dur) * 100);
+    }
+    int getCurrentSegment(){return this->current_segment;}
+    //Functions used to retrieve the value as a string or its native type.
     QString get_len_study_str() const {return QString::number(this->len_study);}
     QString get_len_break_s_str() const {return QString::number(this->len_break_s);}
     QString get_len_break_l_str() const {return QString::number(this->len_break_l);}
@@ -56,16 +95,18 @@ public:
     int get_c_pom_int() const {return this->c_pomodoros;}
     int get_m_cycle_int() const {return this->m_cycles;}
     int get_m_pom_int() const {return this->m_pomodoros;}
+    QString get_icon_name(int status) const;
     bool is_cycle_lim_enabled() const {return this->c_limit_enabled;}
-    bool logging_stdout() const {return this->log_stdout;}
-    void toggle_log_stdout(bool nval){this->log_stdout = nval;}
 public slots:
     //Adjust segment length specified by int segment to int new_time in seconds.
     void adjustSegment(int segment, int new_time);
     void setMessageTitles(bool updated[6], QString new_messages[6]);
     void setMessageBodies(bool updated[6], QString new_messages[6]);
+    void update_icons(const QStringList &icons);
     //Apply a preset from a QJsonObject passed as an argument:
-    bool applyPreset(const QJsonObject* preset);
+    bool applyPreset(const QJsonObject &preset);
+    //Skip to the next Pomodoro
+    void skip_pomodoro();
 signals:
     //Emitted when the current segment changes. The int signals the context of the change.
     //0 = Session started, 1 = study -> short break, 2 = study -> long break,
@@ -73,18 +114,15 @@ signals:
     void segment_changed(int);
     void timer_toggled(bool); //Emitted when the timer is paused or resumed, with a resumed timer having true passed as an argument.
 private:
-    //NOTE: QTimer::timerId() returns -1 if the timer is stopped. Also, time is set in ms, so consider this for start & stop functions.
     //Wrapper to hold the timer pointer and its state.
     struct timerWrapper{
         QTimer* timer;
-        //True if timer is paused. If it is paused, then rem should be set to the timer's remaining time.
-        //Paused replaced by a call to QTimer::isActive().
+        //Integer used to hold remaining time when the timer is paused.
         int rem;
     };
     timerWrapper* timerInfo;
-    //Create Json for currentPreset that is updated with each edit to the timer.
-    QJsonObject* currentPreset = NULL;
-    bool log_stdout;
+    //Object that represents the current settings of the timer.
+    QJsonObject* currentPreset = NULL;    
     //Timer vars
     //The cycle the program is currently on.
     int c_cycle;
@@ -100,8 +138,10 @@ private:
     int len_study;
     int len_break_s;
     int len_break_l;
-    //Are we studying or on break?
+    //Are we studying or on break? <DEPRECATED>
     bool studying;
+    //Current segment
+    int current_segment;
     //Sending of notifications handled by ui class.
     //Notification Messages:
     //Pointers to notification structs that hold the messages.
@@ -114,13 +154,14 @@ private:
     5: notification* session_restart;
     */
     //NOTE: Only message titles can be set here due to the use of other vars in the message body.
+    //Used if loading without preset support.
     const QString DEFAULT_TITLES[6] = {
-        QString("Starting Study Session"),
-        QString("Study Segment Complete"),
-        QString("Study Cycle Complete"),
-        QString("Short Break Complete"),
-        QString("Study Session Complete"),
-        QString("Restarting Study Session")
+        QStringLiteral("Starting Study Session"),
+        QStringLiteral("Study Segment Complete"),
+        QStringLiteral("Study Cycle Complete"),
+        QStringLiteral("Short Break Complete"),
+        QStringLiteral("Study Session Complete"),
+        QStringLiteral("Restarting Study Session")
     };
     /* Strings to replace:
      * Number of x
@@ -134,18 +175,21 @@ private:
      *  <len_break_l>
      */
     const QString DEFAULT_MESSAGES[6] = {
-        QString("Good luck!"),
-        QString(("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!")),
-        QString(("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!")),
-        QString("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
-        QString("Congratulations! Hope you got a lot done!"),
-        QString("Time to get some more work done!")
+        QStringLiteral("Good luck!"),
+        QStringLiteral("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!"),
+        QStringLiteral("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!"),
+        QStringLiteral("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
+        QStringLiteral("Congratulations! Hope you got a lot done!"),
+        QStringLiteral("Time to get some more work done!")
     };
     //Current Notification message.
     QString* titles;
     QString* messages;
+    //Icons in use (by path)
+    QStringList icons;
     //Methods
     QString constructOutput(QString template_string) const;
+    void apply_preset_values(const QJsonObject &preset);
 private slots:
     //This function checks where we are in a cycle and resets the timer appropriatly.
     void change_segment();

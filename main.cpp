@@ -7,7 +7,7 @@
 #include "log_handler.h"
 #include <QApplication>
 
-#ifdef QT_NO_QDEBUG
+#ifdef QT_NO_DEBUG
 #define DEF_LOG_FILE QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/pomodoro.log"
 #else
 #define DEF_LOG_FILE QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/pomodoro.debug.log"

@@ -4,10 +4,9 @@
  */
 #include "pomodoro_timer.h"
 //Public Member Functions:
-PomodoroTimer::PomodoroTimer(QTimer * timer, double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool log_stdout, bool c_lim, QWidget* parent) : QWidget(parent){
-    this->log_stdout = log_stdout;
+PomodoroTimer::PomodoroTimer(double study, double break_s, double break_l, int units[], int m_cycles, int m_pomodoros, bool c_lim, QWidget* parent) : QWidget(parent){
     this->timerInfo = new PomodoroTimer::timerWrapper;
-    this->timerInfo->timer = timer;
+    this->timerInfo->timer = new QTimer(this);
     this->timerInfo->rem = -1;
     this->len_study = TimerConfig::convert_time(study, units[0]); //Times sent as s, this adjusts them to ms.
     this->len_break_s = TimerConfig::convert_time(break_s, units[1]);
@@ -22,91 +21,103 @@ PomodoroTimer::PomodoroTimer(QTimer * timer, double study, double break_s, doubl
         this->titles[i] = QString("");
         this->messages[i] = QString("");
     }
+    this->icons << "" << "" << "" << "";
     connect(this->timerInfo->timer, &QTimer::timeout, this, &PomodoroTimer::change_segment);
     this->constructSettingsJson(units);
 }
 
-PomodoroTimer::PomodoroTimer(QTimer* timer, const QJsonObject* preset, bool log_stdout, QWidget* parent) : QWidget(parent){
-    this->log_stdout = log_stdout;
+PomodoroTimer::PomodoroTimer(const QJsonObject* preset, QWidget* parent) : QWidget(parent){
+    //Inititialize Icon List to empty strings
+    this->icons << "" << "" << "" << "";
     this->timerInfo = new PomodoroTimer::timerWrapper;
-    this->timerInfo->timer = timer;
-    this->applyPreset(preset);
+    this->timerInfo->timer = new QTimer(this);
+    this->applyPreset(*preset);
     connect(this->timerInfo->timer, &QTimer::timeout, this, &PomodoroTimer::change_segment);
 }
 
-bool PomodoroTimer::applyPreset(const QJsonObject *preset){
-    QJsonObject* preset_copy = new QJsonObject(*(preset));
-    try{
+void PomodoroTimer::apply_preset_values(const QJsonObject &preset){
         std::string preset_name;
         try{
-            preset_name = PresetManager::getJsonVal<QString>(preset->value("preset_name")).toStdString();
+            preset_name = PresetManager::getJsonVal<QString>(preset.value("preset_name")).toStdString();
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error();
         }
         try{
             //Assign the study length.
-            this->len_study = PresetManager::getSegmentLength((*preset)["len_study"]);
+            this->len_study = PresetManager::getSegmentLength(preset["len_study"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "len_study", ex);
         }
         try{
             //Assign the short break length.
-            this->len_break_s = PresetManager::getSegmentLength((*preset)["len_break_s"]);
+            this->len_break_s = PresetManager::getSegmentLength(preset["len_break_s"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "len_break_s", ex);
         }
         //Assign the long break length.
         try{
-            this->len_break_l = PresetManager::getSegmentLength((*preset)["len_break_l"]);
+            this->len_break_l = PresetManager::getSegmentLength(preset["len_break_l"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "len_break_l", ex);
         }
         this->c_cycle = 1;
         try{
-            this->m_cycles = PresetManager::getJsonVal<int>((*preset)["max_cycles"]);
+            this->m_cycles = PresetManager::getJsonVal<int>(preset["max_cycles"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "max_cycles", ex);
         }
         this->c_pomodoros = 1;
         try{
-            this->m_pomodoros = PresetManager::getJsonVal<int>((*preset)["max_pomodoros"]);
+            this->m_pomodoros = PresetManager::getJsonVal<int>(preset["max_pomodoros"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "max_pomodoros", ex);
         }
         try{
-            this->titles = PresetManager::getPresetStringArray((*preset)["notification_titles"]);
+            this->titles = PresetManager::getPresetStringArray(preset["notification_titles"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "notification_titles", ex);
         }
         try{
-            this->messages = PresetManager::getPresetStringArray((*preset)["notification_messages"]);
+            this->messages = PresetManager::getPresetStringArray(preset["notification_messages"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "notification_messages", ex);
         }
         try{
-            this->c_limit_enabled = PresetManager::getJsonVal<bool>((*preset)["cycle_lim_enabled"]);
+            this->c_limit_enabled = PresetManager::getJsonVal<bool>(preset["cycle_lim_enabled"]);
         }
         catch (PresetManager::json_value_error &ex){
             throw PresetManager::preset_error(preset_name, "cycle_lim_enabled", ex);
         }
+        try{
+            QJsonArray paths = PresetManager::getJsonVal<QJsonArray>(preset.value("icon_paths"));
+            for(int i = 0; i < 4; i++)
+                this->icons[i] = ((paths.at(i).isUndefined()) ? "" : paths.at(i).toString());
+        }
+        catch (PresetManager::json_value_error &ex){
+            qWarning("'icon_paths' field is missing, using default icons...");
+            this->icons << "" << "" << "" << "";
+        }
+    }
+bool PomodoroTimer::applyPreset(const QJsonObject &preset){
+    try{
+        this->apply_preset_values(preset);
         //If we made it here, the json_value_error exception was NOT thrown. proceed with updateing the preset pointer.
-        if(this->currentPreset != NULL)
+        if(this->currentPreset != nullptr)
             delete this->currentPreset;
         //(Hopefully) Create a copy of the Preset.
-        this->currentPreset = preset_copy;
+        this->currentPreset = new QJsonObject(preset);
         return true;
     }
     catch (PresetManager::preset_error &err){
-        delete preset_copy;
-        this->applyPreset(this->currentPreset);
+        this->apply_preset_values(*this->currentPreset);
         throw PresetManager::preset_error(err);
     }
 }
@@ -121,9 +132,12 @@ void PomodoroTimer::constructSettingsJson(int units[3], QString* name){
         name = new QString("FALLBACK");
     QJsonArray titles;
     QJsonArray messages;
+    QJsonArray icons;
     for(int i = 0; i < 6; i++){
         titles.append(this->titles[i]);
         messages.append(this->messages[i]);
+        if(!this->icons.isEmpty() && i < 4)
+            icons.append(this->icons[i]);
     }
     this->currentPreset = new QJsonObject({
         {"preset_name", *name},
@@ -134,15 +148,16 @@ void PomodoroTimer::constructSettingsJson(int units[3], QString* name){
         {"max_pomodoros", this->m_pomodoros},
         {"max_cycles", this->m_cycles},
         {"notification_titles", titles},
-        {"notification_messages", messages}
+        {"notification_messages", messages},
     });
+    if(this->icons.length() == 4)
+        this->currentPreset->insert("icon_paths", icons);
+
     delete name; //Prevents memory leaks!
 }
 
-QJsonObject PomodoroTimer::getPresetJson(QString name) const{
-    QJsonObject returning =  QJsonObject(*(this->currentPreset));
-    //returning["preset_name"] = name;
-    return returning;
+QJsonObject PomodoroTimer::getPresetJson() const{
+    return QJsonObject(*(this->currentPreset));
 }
 //Copies the name of the running timer to a newly allocated string.
 QString* PomodoroTimer::getRunningPresetName() const{
@@ -150,7 +165,7 @@ QString* PomodoroTimer::getRunningPresetName() const{
         try{
             return new QString(PresetManager::getJsonVal<QString>(this->currentPreset->value("preset_name")));
         }
-        catch (PresetManager::json_value_error){
+        catch (PresetManager::json_value_error const&){
             return new QString("UNDEFINED");
         }
     }
@@ -161,6 +176,7 @@ void PomodoroTimer::initCycle(bool reset){
     this->timerInfo->timer->start(this->len_study);
     this->studying = true;
     this->c_pomodoros = this->c_cycle = 1;
+    this->current_segment = 0;
     //Emit signal to print welcome message.
     //Resets session if resume button is pressed after end of session.
     if(reset){
@@ -180,15 +196,18 @@ void PomodoroTimer::change_segment(){
         if(this->c_pomodoros < this->m_pomodoros){
             qInfo("Starting Short Break...");
             this->timerInfo->timer->start(this->len_break_s);
+            this->current_segment = 1;
             emit this->segment_changed(1);
         }
         else{
             qInfo("Starting Long Break...");
             this->timerInfo->timer->start(this->len_break_l);
+            this->current_segment = 2;
             emit this->segment_changed(2);
         }
     }
     else{
+        this->current_segment = 0;
         qInfo("Back studying...");
         this->studying = true;
         if(this->c_pomodoros < this->m_pomodoros){
@@ -199,6 +218,7 @@ void PomodoroTimer::change_segment(){
         }
         else if (this->c_limit_enabled && this->c_cycle >= this->m_cycles){ //If this is true, stop and send message.
             qInfo("Cycle limit reached. Stopping...");
+            this->current_segment = 3;
             this->c_cycle = 0;
             this->timerInfo->timer->stop();
             emit this->segment_changed(4);
@@ -225,6 +245,16 @@ void PomodoroTimer::resetSegment(){
     if (!prev_active) //Re-enable loop_timer and switch back labels
         emit this->timer_toggled(true);
 }
+
+void PomodoroTimer::skip_pomodoro(){
+    if(this->current_segment != 3){
+        this->timerInfo->timer->stop();
+        this->studying = false;
+        this->current_segment = (this->c_pomodoros < this->m_pomodoros) ? 1 : 2;
+        this->change_segment();
+    }
+}
+
 //Pauses the timer if it is running, resumes it if it is paused. If at end of session, toggling timer restarts the session.
 void PomodoroTimer::toggleTimer(){
     if (this->timerInfo->timer->isActive())
@@ -240,7 +270,6 @@ void PomodoroTimer::ResetSession(){
 }
 
 //Adjust segment length specified by int segment to int new_time in seconds.
-//To be implemented
 void PomodoroTimer::adjustSegment(int segment, int new_time){
     switch(segment){
     case 1:
@@ -262,6 +291,12 @@ void PomodoroTimer::adjustSegment(int segment, int new_time){
     case 6:
         this->c_limit_enabled = static_cast<bool>(new_time);
     };
+}
+void PomodoroTimer::update_icons(const QStringList &icons){
+    if(icons.length() == 4){
+        for(int i = 0; i < 4; i++)
+            this->icons[i] = icons[i];
+    }
 }
 //false=0, true=1
 //Method to get the program's status. 1 = studying, 2 = short break, 3 = long break. Integer is negative if timer is paused.
@@ -360,6 +395,14 @@ QString PomodoroTimer::getMessageBodyTemplate(int status) const{
     else
         return QString("Status out of index?");
 }
+
+QString PomodoroTimer::get_icon_name(int status) const{
+    QString icon = (this->icons.length() > status) ? this->icons[status] : "";
+    //qInfo("%s", (std::stringstream() << "Icon title: " << qPrintable(icon)).str().c_str());
+    return icon;
+}
+
+
 //Update the contents of messages.
 void PomodoroTimer::setMessageTitles(bool updated[6], QString new_messages[6]){
     for(int i = 0; i < 6; i++){
@@ -374,12 +417,14 @@ void PomodoroTimer::setMessageBodies(bool updated[6], QString new_messages[6]){
             this->messages[i] = new_messages[i];
     }
 }
+
 //Private Member Functions
 //Method to start the timer.
 void PomodoroTimer::resumeTimer(){
     this->timerInfo->timer->start(this->timerInfo->rem);
     emit this->timer_toggled(true);
 }
+
 //Method to stop the timer. SHOULD ONLY BE CALLED BY toggleTimer().
 void PomodoroTimer::pauseTimer(){
     if(this->timerInfo->timer->isActive())
@@ -393,25 +438,3 @@ void PomodoroTimer::pauseTimer(){
 void PomodoroTimer::ResetSegment(){
     this->resetSegment();
 }
-
-/*switch (status){
-    case 0:
-        return QString::fromStdString("Good luck!");
-        break;
-    case 1:
-        return QString::fromStdString(("Nice job out there. You have completed " + this->get_c_pom_str() + " pomodoros.\nEnjoy your short break!"));
-        break;
-    case 2:
-        return QString::fromStdString(("Congratulations! You have completed " + this->get_c_pom_str() + " pomodoros, and have earned your self a long break!"));
-        break;
-    case 3:
-        return QString::fromStdString("Hope you enjoyed the break! Now, GET BACK TO WORK!");
-        break;
-    case 4:
-        return QString::fromStdString("Congratulations! Hope you got a lot done!");
-        break;
-    case 5:
-        return QString::fromStdString("Time to get some more work done!");
-        break;
-    };
-*/

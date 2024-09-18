@@ -7,6 +7,7 @@
 #include "widgets.h"
 #include "pomodoro_timer.h"
 #include "help_browser.h"
+struct icon_preview;
 class QDialog;
 class QPushButton;
 class QLineEdit;
@@ -46,10 +47,9 @@ protected:
     SegmentEditor* s_edit;
     //Message Editors:
     NotificationEditor* title_edit;
-    NotificationEditor* message_edit;
     //Setup functions
     void setupTabBar();
-    void setupButtons(QString conf_reset = QString("Confirm and Reset"), QString conf_apply = QString("Confirm"), QString abort = QString("Cancel"));
+    void setupButtons(QString conf_reset = QStringLiteral("Confirm and Reset"), QString conf_apply = QStringLiteral("Confirm"), QString abort = QStringLiteral("Cancel"));
     //Non-Pushbutton Exit functions
     void closeEvent(QCloseEvent *event) override;
     void reject() override; //This is called by the esc key.
@@ -57,6 +57,7 @@ signals:
     void segment_updated(int, int);
     void titles_updated(bool updated[6], QString updates[6]);
     void messages_updated(bool updated[6], QString updates[6]);
+    void icons_updated(const QStringList &icons);
     void config_complete();
 protected slots:
     bool submit();
@@ -89,27 +90,32 @@ public:
     QString ms_to_unit(int, int) const;
     bool checkCycleLimit() const {return this->m_cycle_enabled->isChecked();}
     void get_units(int arr[3]) const;
+    QStringList getIconNames() const;
     //Do we convert the time to ms?
     virtual bool convert() const {return true;}
 protected:
     QGridLayout* layout;
     TimerConfig* parentConfig;
 
-    //Segment Lengths    
+    //Segment Lengths
     //Study Length
     QLabel* studyLabel;
     QLineEdit* study;
     QComboBox* studyUnit;
+    QComboBox* study_icon;
 
     //Short Break Length
     QLabel* short_break_label;
     QLineEdit* short_break;
     QComboBox*  short_break_unit;
+    QComboBox* short_break_icon;
+
 
     //Long Break Length
     QLabel* long_break_label;
     QLineEdit* long_break;
     QComboBox* long_break_unit;
+    QComboBox* long_break_icon;
 
     //Max Pomodoros
     QLabel* p_per_c_label;
@@ -120,12 +126,26 @@ protected:
     QLineEdit* m_cycle;
     QLabel* m_cycle_enabled_label;
     QRadioButton* m_cycle_enabled;
+    QComboBox* complete_icon;
 
     //Init the units in the combo box:
     QComboBox* setupUnitBox(QComboBox*);
     QPushButton* help;
+
+    //The list used to find the icon's name.
+    QList<icon_preview*> icons;
+
+    //Function used to populate said list.
+    void populate_icon_list(QComboBox *icons);
+
+    //QAction used to add new icons to the list.
+    QPushButton* new_image;
+    void set_box_selection(PomodoroTimer *parent_timer, QComboBox* menu, int status);
+    void set_box_selection(QString icon, QComboBox* menu);
+    void update_icons();
 private slots:
     void retrieve_help();
+    void load_new_image();
 };
 
 //Contains Methods from the "Notification Editor Class"
@@ -136,6 +156,7 @@ public:
     virtual void setPlaceholders(PomodoroTimer* parentTimer);
     virtual void setPlaceholders(const QJsonObject*);
     void getTitleInputs(QString (&src)[6]) const;
+    void getMessageInputs(QString (&src)[6]) const;
 protected:
     //Layout Handler
     QGridLayout* layout;
@@ -145,20 +166,17 @@ protected:
     session_started_label=[0]   study_complete_label=[1]
     break_complete_label=[2]    pomodoro_cycle_complete_label=[3]
     session_complete_label=[4]  session_restart_label=[5] */
+    //The Thing that the field edits.
+    QLabel* items[6];
     QLabel* labels[6];
     QLineEdit* title_inputs[6];
+    QPushButton* message_body_setters[6];
+    QString message_inputs[6];
+    QString init_message_inputs[6];
     QPushButton* help;
 protected slots:
     void retrieve_help();
+private slots:
+    void edit_body();
 };
-
-//Created child class of notification editor for messages.
-class MessageEditor : public NotificationEditor{
-    Q_OBJECT
-public:
-    MessageEditor(TimerConfig* parent) : NotificationEditor(parent){}
-    virtual void setPlaceholders(PomodoroTimer* parentTimer) override;
-    virtual void setPlaceholders(const QJsonObject*) override;
-};
-
 #endif // TIMERCONFIG_H

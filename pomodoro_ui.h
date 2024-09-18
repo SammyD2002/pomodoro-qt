@@ -9,12 +9,6 @@
 #include "help_browser.h"
 #include "timerconfig.h"
 #include "preset_editor.h"
-//Use namespace as suggested at https://stackoverflow.com/questions/2268749/defining-global-constant-in-c
-/*QT_BEGIN_NAMESPACE
-namespace Ui {
-class PomodoroUI;
-}
-QT_END_NAMESPACE*/
 class QActionGroup;
 class QMenuBar;
 class QGridLayout;
@@ -34,23 +28,19 @@ class PomodoroUI : public QWidget
 
 public:
     PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_preset, QWidget *parent = nullptr);
-//static help* timer_help;
-    //PomodoroUI(bool log_stdout = false);
-    //Overloaded function for user-determined time frames.
-    //PomodoroUI(QWidget *parent = nullptr, bool notify = true, bool log_stdout = false);
     ~PomodoroUI();
 public slots:
-    void prompt_confirmation(QString Title, QString Message, bool &result, QString accept = QString("Yes"), QString reject = QString("No"));
+    void prompt_confirmation(QString Title, QString Message, bool &result, QString accept = QStringLiteral("Yes"), QString reject = QStringLiteral("No"));
 signals:
     void get_help();
 protected:
     //per online example, allows overriding window close/minimize events.
     void closeEvent(QCloseEvent *event) override;
 private:
-    const int LEN_LOOP = 200; //Length of loop_timer in ms.
+    const int LEN_LOOP = 100; //Length of loop_timer in ms.
     bool notify; //Marked if notifications are enabled.
-    bool log_stdout;
     bool warned_tray = false; //Updated to true if/when notification is sent signaling program was closed to tray.
+    QString icons_in_use[4];
     QIcon study_icon;
     QIcon breaktime_icon;
     //Ui::PomodoroUI *ui;
@@ -60,28 +50,25 @@ private:
     //QMenu *trayIconMenu;
     //The currently active timer.
     QPushButton* toggle;
-    QTimer* main_timer;
+    //QTimer* main_timer;
     QTimer* loop_timer;
     PomodoroTimer* cycle;
     QLabel* clock;
     QLabel* pc_status;
-    std::string status[2];
+    QString status[4];
     //Object to handle loading and saving of presets.
     PresetManager* preset_manager;
     QMenu* preset_menus[6];
-    /*QMenu* load_preset_menu;
-    QMenu* del_preset_menu;
-    QMenu* edit_preset_menu;
-    QMenu* rename_preset_menu;
-    QMenu* new_default_preset_menu;*/
-    //QMenu* edit_preset_menu;
-    //QMenu* rename_preset_menu;
-    //Actions for menus
+
+    //Contains actions added to the tray icon's context menu for use elsewhere.
     QList<QAction*>* tray_menu_items;
     QMenuBar* top_bar;
+    //Sets up the menus in th menubar.
     void SetupMenus();
-    //void connectConfigSignals();
+    //Update the time and segment displayed in the tray's tooltips.
     void UpdateTrayTooltip();
+    //Disable/Enable the tray and its menus
+    void set_tray_enabled(bool);
 private slots:
     void retrieve_help();
     void update_timer_display();
@@ -89,7 +76,7 @@ private slots:
     void toggled(bool);
     //void restart_timer(); //Should connect to the QTimer::timeout signal.
     void notify_session(int); //Should (If enabled) connect to the segment_changed signal.
-    void update_segment(int);
+    void update_segment(int); //Slot ran when segment changes after time expires.
     void window_toggle(QSystemTrayIcon::ActivationReason reason);
     //Called to quit the app and send a goodbye notice. Reason: activate requires a bool param.
     void quitting();
@@ -106,12 +93,6 @@ private slots:
     //Update the entries in the preset menu.
     void preset_added(QAction* set[6]);
     void preset_removed(QAction* set[6]);
-    /*void update_study(int);
-    void update_break_short(int);
-    void update_break_long(int);
-    void update_max_pomodoros(int);
-    void update_max_cycles(int);
-    void update_cycle_limit(bool);*/
 };
 
 #endif // POMODORO_UI_H

@@ -4,9 +4,9 @@
  */
 #include "help_browser.h"
 #include <iostream>
-//member attributes
-QHelpEngineCore* help_browser::help = NULL;
-help_browser::help_viewer* help_browser::viewer = NULL;
+//Initialize pointer to help browser instance to nullptr.
+QHelpEngineCore* help_browser::help = nullptr;
+help_browser::help_viewer* help_browser::viewer = nullptr;
 
 //Methods for help_viewer class:
 help_browser::help_viewer::help_viewer(QWidget* parent) : QTextBrowser(parent) {}
@@ -23,29 +23,27 @@ QVariant help_browser::help_viewer::loadResource(int type, const QUrl &name){
     return ba;
 }
 
-void help_browser::load_help(QString component, QWidget* parent){
+//Loads help document for <component>
+void help_browser::load_help(QString component){
     if (help_browser::setup_help()){
         QList<QHelpLink> links = help_browser::help->documentsForIdentifier("Pomodoro::" + component, "");
-        //std::cout << qPrintable(help_browser::help->namespaceName("/vol/sharedstorage/Software/Projects/Personal/qt/help/doc_html/doc.qch")) << "links.count(): " << int(links.count()) << std::endl;
         if (links.count())
-            help_browser::setup_viewer(links.first().url, parent);
+            help_browser::setup_viewer(links.first().url);
         else{
-            //std::cout << qPrintable(help_browser::help->error()) << std::endl;
             return;
         }
-
     }
     else{
-        //std::cout << "Error opening the file." << std::endl;
         delete help_browser::help;
         help_browser::help = NULL;
     }
 
 }
-//member functions
-//NEW WAY OF DOING THIS:
-//1. Write help cached here to the cache location
-//2. Create a new help engine targeting the newly created help file.
+/*
+Loading Help:
+1. Write help cached here to the cache location
+2. Create a new help engine targeting the newly created help file.
+*/
 bool help_browser::setup_help(){
     if (help_browser::help == NULL){
         if (help_browser::cache_documentation(QStandardPaths::writableLocation(QStandardPaths::CacheLocation))){
@@ -54,11 +52,6 @@ bool help_browser::setup_help(){
         else{
             return false;
         }
-        //help_browser::help = new QHelpEngine("/vol/sharedstorage/Software/Projects/Personal/qt/help/doc_html/doc.qch");
-
-        //help_browser::help->registerDocumentation(":doc.qch");
-        //help_browser::help->registerDocumentation("/vol/sharedstorage/Software/Projects/Personal/qt/help/doc_html/doc.qch");
-
         bool setup = help_browser::help->setupData(); //Returns the value if the data was setup correctly.
         //print list of documents in help:
         QStringList docs = help_browser::help->registeredDocumentations();
@@ -67,7 +60,6 @@ bool help_browser::setup_help(){
         }
         return setup;
     }
-
     return true;
 }
 
@@ -80,9 +72,10 @@ bool help_browser::cache_documentation(QString cache_dir){
 }
 
 //Load file from QUrl, or default index if url passed = NULL.
-bool help_browser::setup_viewer(QUrl help_link, QWidget *parent){
+bool help_browser::setup_viewer(QUrl help_link){
     if (!help_browser::viewer)
         help_browser::viewer = new help_browser::help_viewer();
+    help_browser::viewer->setFixedSize(1000,500); //Set window dimensions.
     help_browser::viewer->setSource(help_link);
     help_browser::viewer->show();
     return true;

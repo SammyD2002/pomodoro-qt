@@ -23,7 +23,7 @@ class help_browser : QObject
     Q_OBJECT
 public:
     //static method to load a help file.
-    static void load_help(QString component, QWidget* parent);
+    static void load_help(QString component);
     //Updates the parent widget of the viewer to allow for it to be used during the modal timer config dialog.
 private:
     //Default constructor to prevent object from being created outside of the setup_help function.
@@ -31,7 +31,7 @@ private:
     //member functions
     static bool setup_help();
     //Load file from QUrl
-    static bool setup_viewer(QUrl help_link, QWidget* parent);
+    static bool setup_viewer(QUrl help_link);
     static bool cache_documentation(QString cache_dir);
     //member attributes
     //Class with method to override the loading of help docs.

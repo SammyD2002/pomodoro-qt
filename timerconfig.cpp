@@ -11,11 +11,11 @@
 //Multiplier for the index of a UNIT array used in multiple other places in the program.
 const double TimerConfig::UNIT_MULT[3] = {1000, 60000, 3600000};
 
+//Called when editing a running timer. Connects the timer to the various update methods.
 TimerConfig::TimerConfig(PomodoroTimer* parentTimer) : TimerConfig(0, parentTimer){
     //Tabs
     this->s_edit = new SegmentEditor(this);
     this->title_edit = new NotificationEditor(this);
-    this->message_edit = new MessageEditor(this);
     this->setupTabBar();
     this->setupButtons();
     //Set the parentTimer variable.
@@ -27,7 +27,10 @@ TimerConfig::TimerConfig(PomodoroTimer* parentTimer) : TimerConfig(0, parentTime
     connect(this, &TimerConfig::segment_updated, parentTimer, &PomodoroTimer::adjustSegment);
     connect(this, &TimerConfig::titles_updated, parentTimer, &PomodoroTimer::setMessageTitles);
     connect(this, &TimerConfig::messages_updated, parentTimer, &PomodoroTimer::setMessageBodies);
+    connect(this, &TimerConfig::icons_updated, parentTimer, &PomodoroTimer::update_icons);
 }
+
+//Called by timerConfig and PresetEditor classes. Sets the layout of widgets in the window.
 TimerConfig::TimerConfig(int buf_upper, QWidget* parent) : QDialog(parent){
     this->layout = new QGridLayout(this);
     //Need to add labels and unit selection boxes.
@@ -50,20 +53,21 @@ TimerConfig::TimerConfig(int buf_upper, QWidget* parent) : QDialog(parent){
     //this->show();
 }
 
+//Sets up the tab bar with Segment/Notification Settings Tabs.
 void TimerConfig::setupTabBar(){
     //Add tabs to the tab bar
-    configTabBar->addTab(this->s_edit, "Segment Lengths"); //Keep the normal config here.
-    configTabBar->addTab(this->title_edit, "Notification Titles"); //Add the message config here.
-    configTabBar->addTab(this->message_edit, "Notification Messages");
+    configTabBar->addTab(this->s_edit, QStringLiteral("Segment Lengths")); //Keep the normal config here.
+    configTabBar->addTab(this->title_edit, QStringLiteral("Notifications")); //Add the message config here.
 }
 
+//Configures text on confirm/apply/abort buttons.
 void TimerConfig::setupButtons(QString conf_reset, QString conf_apply, QString abort){
     this->conf_reset->setText(conf_reset);
     this->conf_apply->setText(conf_apply);
     this->abort->setText(abort);
 }
 
-//Timer close override
+//Timer close override. Emits signal to make the timer resume before closing.
 void TimerConfig::closeEvent(QCloseEvent *event){
     emit this->config_complete();
     event->accept();
@@ -77,7 +81,6 @@ void TimerConfig::reject(){
 void TimerConfig::setup(){
     this->s_edit->setPlaceholders(this->parentTimer);
     this->title_edit->setPlaceholders(this->parentTimer);
-    this->message_edit->setPlaceholders(this->parentTimer);
     this->exec();
 }
 
@@ -98,24 +101,24 @@ void TimerConfig::setup(){
  * m:s.z
  */
 QDateTime TimerConfig::input_is_formatted_time(QString in, int mode) const{ //Determine # of : to intelligently decide what type of time is being typed.
-    QDateTime time = QDateTime::fromString(in, "h:m:s");
+    QDateTime time = QDateTime::fromString(in, QStringLiteral("h:m:s"));
     if (time.isValid())
         return time;
-    time = QDateTime::fromString(in, "h:m:s.z");
+    time = QDateTime::fromString(in, QStringLiteral("h:m:s.z"));
     if (time.isValid())
         return time;
     switch (mode){
     case 0: //Unit = s
     case 1: //Unit = m
-        time = QDateTime::fromString(in, "m:s");
+        time = QDateTime::fromString(in, QStringLiteral("m:s"));
         if (time.isValid())
             return time;
-        time = QDateTime::fromString(in, "m:s.z");
+        time = QDateTime::fromString(in, QStringLiteral("m:s.z"));
         if (time.isValid())
             return time;
         break;
     case 2:
-        time = QDateTime::fromString(in, "h:m");
+        time = QDateTime::fromString(in, QStringLiteral("h:m"));
         if (time.isValid())
             return time;
         break;
@@ -133,7 +136,7 @@ bool TimerConfig::submit(){
     QString new_messages[6];
     this->s_edit->getInputs(new_vals, this->s_edit->convert());
     this->title_edit->getTitleInputs(new_titles);
-    this->message_edit->getTitleInputs(new_messages);
+    this->title_edit->getMessageInputs(new_messages);
     for(int i = 0; i < 5 - static_cast<int>(this->s_edit->checkCycleLimit()); i++){
         if(new_vals[i] < 0){
             //do err for element at i.
@@ -142,7 +145,7 @@ bool TimerConfig::submit(){
     }
 
     if (all_good){
-        qDebug("Preset validated. Attempting to apply changes...");
+        qDebug("Settings validated. Attempting to apply changes...");
         if(this->apply_changes(new_vals, new_titles, new_messages)){
             this->close();
             return true;
@@ -185,6 +188,9 @@ bool TimerConfig::apply_changes(double new_vals[5], QString (&new_titles)[6], QS
             m_updated[i] = false;
     }
     emit this->messages_updated(m_updated, new_messages);
+    //Push updated icons
+    QStringList icons = this->s_edit->getIconNames();
+    emit this->icons_updated(icons);
     int units[3];
     this->s_edit->get_units(units);
     this->parentTimer->constructSettingsJson(units, this->parentTimer->getRunningPresetName());
@@ -222,13 +228,14 @@ int TimerConfig::convert_time(double time, int unit){
     int new_time = 0;
     switch(unit){ //Convert nums to smaller value until ms is reached.
     case 2: //hours
-        time *= 60; //Hours to Minutes = m = 1/60 hours -> 60m = 1h
+        time *= 3600; //Hours to Minutes = m = 1/60 hours -> 60m = 1h
+        break;
     case 1: //min
         time *= 60; //Minutes to Seconds: sec = 1/60 minutes -> 60s = 1m
-    case 0: //Seconds
-        new_time = time * 1000; //Seconds to ms: ms = 1/1000 seconds -> 1000ms = 1s
         break;
     };
+    //Seconds
+    new_time = time * 1000; //Seconds to ms: ms = 1/1000 seconds -> 1000ms = 1s
     if(new_time <= 0)
         return -1;
     else

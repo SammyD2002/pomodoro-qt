@@ -25,8 +25,8 @@
      inkscape:document-units="px"
      inkscape:lockguides="false"
      inkscape:zoom="1.2519531"
-     inkscape:cx="256"
-     inkscape:cy="141.3791"
+     inkscape:cx="334.2777"
+     inkscape:cy="-15.975039"
      inkscape:window-width="1366"
      inkscape:window-height="718"
      inkscape:window-x="0"
@@ -55,29 +55,31 @@
      transform="translate(-1.4426863,-1.7812521)">
     <g
        id="g4"
-       transform="matrix(11.377778,0,0,11.377778,-14.971875,-18.485436)">
+       transform="matrix(11.099851,0,0,11.099851,-8.727488,-12.146952)"
+       style="stroke-width:1.40625;stroke-dasharray:none"
+       inkscape:label="g4">
       <circle
-         style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.279503;stroke-dasharray:none;stroke-opacity:1"
+         style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:1.40625;stroke-dasharray:none;stroke-opacity:1"
          id="path1"
          cx="23.942686"
          cy="24.281252"
          r="22.360249" />
       <ellipse
-         style="fill:#020202;fill-opacity:1;stroke:#000000;stroke-width:0.290818;stroke-dasharray:none;stroke-opacity:1"
+         style="fill:#020202;fill-opacity:1;stroke:#000000;stroke-width:1.40625;stroke-dasharray:none;stroke-opacity:1"
          id="path3"
          cx="14.5"
          cy="16"
          rx="1.8545911"
          ry="1.854591" />
       <ellipse
-         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.290818;stroke-dasharray:none;stroke-opacity:1"
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.40625;stroke-dasharray:none;stroke-opacity:1"
          id="path3-2"
          cx="33.5"
          cy="16"
          rx="1.8545911"
          ry="1.854591" />
       <path
-         style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.362451;stroke-dasharray:none;stroke-opacity:1"
+         style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:1.40625;stroke-dasharray:none;stroke-opacity:1"
          d="m 12.48318,29.124457 c 12.009992,15.152789 21.871924,0.473568 21.871924,0.473568"
          id="path4" />
     </g>

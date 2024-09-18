@@ -7,9 +7,11 @@
 #include "widgets.h"
 #include "timerconfig.h"
 #include "pomodoro_timer.h"
+#include "preset_icon_manager.h"
 class QJsonDocument;
 class QJsonArray;
 class TimerConfig;
+class PresetIconManager;
 class PresetManager : public QObject{
     Q_OBJECT
 
@@ -17,12 +19,17 @@ public:
 //Member Attributes - Static Const
     //The path in which the preset file is stored at.
     static const QJsonObject* DEFAULT_PRESET;
+    static const QString DEFAULT_STUDY_ICON_PATH;
+    static const QString DEFAULT_BREAK_ICON_PATH;
+    static PresetIconManager* icon_varient_manager;
+    static const QIcon* load_icon_file(const QString &filename, int urgency=-1, bool returning=false);
+
 //Member Attributes - Static
+    //json_value_error class - See preset_errors.cpp for more information.
     class json_value_error : public std::runtime_error{
     public:
         json_value_error(std::string preset_name);
         json_value_error(json_value_error &err) : std::runtime_error(err.what()) {this->issue = err.what();}
-        //const char* what() const noexcept override;
     private:
         const char* issue;
     };
@@ -55,12 +62,15 @@ public:
     template <typename T>
     static T getJsonVal(const QJsonValue val);
     static void validate_preset(const QJsonObject* preset);
-    static QString* getPresetStringArray(const QJsonValue val, bool no_return=false); //Parse and confirm all values are good before returning the pointer.
+    static QString* getPresetStringArray(const QJsonValue val, int correct_size=6, bool no_return=false); //Parse and confirm all values are good before returning the pointer.
 //Standard Member Functions
     //Constructor that reads in presets from a preset file path passed as an argument, skipping if one does not exist.
     PresetManager(QWidget* parent = nullptr, QString path = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
     PresetManager(QString def, QString ex, QWidget* parent = nullptr);
     ~PresetManager();
+    //Gets the icons in use for preset <preset>
+    QString* get_preset_icons(QJsonObject* preset) const;
+    QString* get_preset_icons(QString preset_name) const {return this->get_preset_icons(this->getPreset(preset_name));}
     //void currPrefsToPreset(QString ps_name, PomodoroTimer* timer); //User prompted for prefix name elsewhere.
     void startEdit(QString ps_name);
     bool removePreset(QString ps_name);
@@ -78,6 +88,8 @@ public:
     bool writeDefaultPresetFile();
     void insert_preset(QJsonObject preset);
     bool writePresetFile();
+    //const QIcon* construct_tray_icon(int status, const QJsonObject *icon_name, int percent_complete=0);
+    const QIcon* construct_tray_icon(int status, QString icon_name, int percent_complete=0);
 public slots:
     bool create_preset(QJsonObject preset, bool overwrite = false);
     bool update_preset(QString old, QJsonObject preset, bool overwrite = false);
@@ -86,7 +98,7 @@ signals:
     void presetFileLoaded();
     void preset_added(QAction* set[6]);
     void preset_removed(QAction* set[6]);
-    bool presetLoaded(const QJsonObject*) const; //From my understanding, using const here will only make sender const.
+    bool presetLoaded(const QJsonObject &preset) const; //From my understanding, using const here will only make sender const.
 private:
 //Member Attributes
     const QJsonObject preset_template = {
@@ -98,7 +110,13 @@ private:
         {"max_pomodoros", -1},
         {"max_cycles", -1},
         {"notification_titles", QJsonArray({QString(), QString(), QString(), QString(), QString()})},
-        {"notification_messages", QJsonArray({QString(), QString(), QString(), QString(), QString()})}
+        {"notification_messages", QJsonArray({QString(), QString(), QString(), QString(), QString()})},
+        {"icon_paths", QJsonArray({QString(), QString(), QString(), QString()})}
+    };
+    //Struct to hold a loaded icon and its information.
+    struct preset_icon_group{
+        QAction* icon_action;
+        PresetIconManager* icon_images;
     };
     //Copies the base object to a newly allocated version while validating the preset.
     static QJsonObject* CopyPreset(const QJsonObject* base);
@@ -109,6 +127,7 @@ private:
     QList<QAction*> preset_edit_actions;
     QList<QAction*> preset_rename_actions;
     QList<QAction*> preset_new_default_actions;
+    QMap<QString, preset_icon_group*> preset_icon_groups; //Image path is the key. .find() returns .end() for missing key.
     QJsonArray* presets;
     QJsonObject* default_preset;
     //QString preset_path;
@@ -120,6 +139,11 @@ private:
     const QString getPresetFilePath(); //Grabs the preset path.
     const QString getDefPresetPath();
     const QString getDefaultPresetDir(){return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);}
+    //Sets up the icon list and starts building icons.
+    void init_preset_list();
+    void load_preset_icons(QJsonObject*);
+    //Adds an action for each preset to each menu.
+    void install_presets();
 };
 
 //Replaces the getPreset<Type> functions.

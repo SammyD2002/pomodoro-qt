@@ -3,25 +3,36 @@
  * SPDX-License-Identifier:  AGPL-3.0-only
  */
 #include "preset_manager.h"
+#define NUM_ICON_PARTITIONS 4
 //Functions in this file should relate to the management of the preset library as a whole.
 //This includes loading and saving the preset files, managing the default preset, etc.
 //The default default preset, used if default.json is missing.
+const QString PresetManager::DEFAULT_STUDY_ICON_PATH = QStringLiteral(":icons/book.svg");
+const QString PresetManager::DEFAULT_BREAK_ICON_PATH = QStringLiteral(":icons/smiley.svg");
+PresetIconManager* PresetManager::icon_varient_manager = nullptr;
+//Defines the settings for the default preset used as fallback or on first run.
 const QJsonObject* PresetManager::DEFAULT_PRESET = new QJsonObject({
     {"preset_name", QString("Default")},
     {"len_study", QJsonArray({25.0, 1})},
     {"len_break_s", QJsonArray({5.0, 1})},
     {"len_break_l", QJsonArray({20.0, 1})},
     {"cycle_lim_enabled", true},
-    {"max_pomodoros", 2},
-    {"max_cycles", 4},
+    {"max_pomodoros", 4},
+    {"max_cycles", 2},
     {"notification_titles", QJsonArray({
-        QString("Starting Study Session"), QString("Study Segment Complete"), QString("Study Cycle Complete"),
-        QString("Short Break Complete"), QString("Study Session Complete"), QString("Restarting Study Session")})},
+        QStringLiteral("Starting Study Session"), QStringLiteral("Study Segment Complete"), QStringLiteral("Study Cycle Complete"),
+        QStringLiteral("Break Complete"), QStringLiteral("Study Session Complete"), QStringLiteral("Restarting Study Session")})},
     {"notification_messages", QJsonArray({
-        QString("Good luck!"), QString(("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!")),
-        QString(("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!")),
-        QString("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
-        QString("Congratulations! Hope you got a lot done!"), QString("Time to get some more work done!")})}
+        QStringLiteral("Good luck!"), QStringLiteral("Nice job out there. You have completed <current_pomodoro> pomodoros.\nEnjoy your short break!"),
+        QStringLiteral("Congratulations! You have completed <current_pomodoro> pomodoros, and have earned your self a long break!"),
+        QStringLiteral("Hope you enjoyed the break! Now, GET BACK TO WORK!"),
+        QStringLiteral("Congratulations! Hope you got a lot done!"), QStringLiteral("Time to get some more work done!")})},
+        {"icon_paths", QJsonArray({
+            PresetManager::DEFAULT_STUDY_ICON_PATH,
+            PresetManager::DEFAULT_BREAK_ICON_PATH,
+            PresetManager::DEFAULT_BREAK_ICON_PATH,
+            PresetManager::DEFAULT_BREAK_ICON_PATH
+        })}
 });
 
 //Constructor that reads in presets from a preset file path passed as an argument, skipping if one does not exist.
@@ -33,24 +44,7 @@ PresetManager::PresetManager(QWidget *parent, QString path) : QObject(parent){ /
     this->default_preset_loaded = this->loadDefaultPresetFile();
     if (!default_preset_loaded)
         this->update_default_preset(*DEFAULT_PRESET);
-    this->presets_loaded = this->loadPresetFile();
-    //Go through the array of presets, and add an action to each of the lists for them.
-    for(QJsonArray::const_iterator i = this->presets->constBegin(); i != this->presets->constEnd(); i++){
-        try{
-            QString preset_name = PresetManager::getJsonVal<QString>((*i).toObject()["preset_name"]);
-            for(int i = 0; i < 6; i++)
-                this->preset_actions[i].append(new QAction(preset_name));
-        }
-        catch (json_value_error &err){
-            QString warning("Name at index ");
-            warning += QString::number(std::distance(this->presets->constBegin(), i));
-            warning += QString(" is/has ");
-            warning += QString(err.what());
-            qWarning("%s", warning.toStdString().c_str());
-            for(int i = 0; i < 6; i++)
-                this->preset_actions[i].append(nullptr);
-        }
-    }
+    this->init_preset_list();
 }
 
 PresetManager::PresetManager(QString def, QString ex, QWidget* parent) : QObject(parent){
@@ -67,25 +61,8 @@ PresetManager::PresetManager(QString def, QString ex, QWidget* parent) : QObject
     if (!default_preset_loaded)
         this->update_default_preset(*DEFAULT_PRESET);
     this->presets_loaded = this->loadPresetFile();
-    //Go through the array of presets, and add an action to each of the lists for them.
-    for(QJsonArray::const_iterator i = this->presets->constBegin(); i != this->presets->constEnd(); i++){
-        try{
-            QString preset_name = PresetManager::getJsonVal<QString>((*i).toObject()["preset_name"]);
-            for(int i = 0; i < 6; i++)
-                this->preset_actions[i].append(new QAction(preset_name));
-        }
-        catch (json_value_error &err){
-            QString warning("Name at index ");
-            warning += QString::number(std::distance(this->presets->constBegin(), i));
-            warning += QString(" is/has ");
-            warning += QString(err.what());
-            qWarning("%s", warning.toStdString().c_str());
-            for(int i = 0; i < 6; i++)
-                this->preset_actions[i].append(nullptr);
-        }
-    }
+    this->init_preset_list();
 }
-
 
 //When the PresetManager object is destroyed, write the preset files before the program closes.
 PresetManager::~PresetManager(){
@@ -104,8 +81,102 @@ PresetManager::~PresetManager(){
         if (!pre_write)
             qCritical("The extra preset file could not be written.");
     }
-
 }
+
+//Loads the default preset or fallback preset, then loads and installs the presets from the preset file.
+void PresetManager::init_preset_list(){
+    this->icon_varient_manager = new PresetIconManager(NUM_ICON_PARTITIONS, this); //Create the icon variant manager.
+    //Setup the default preset's icons:
+    this->load_preset_icons(this->default_preset);
+    //Setup the fallback icons.
+    QIcon def_study = QIcon(QPixmap(DEFAULT_STUDY_ICON_PATH));
+    QIcon def_break = QIcon(QPixmap(DEFAULT_BREAK_ICON_PATH));
+    try{
+        this->icon_varient_manager->add_icon(def_study, DEFAULT_STUDY_ICON_PATH);
+        this->icon_varient_manager->add_icon(def_break, DEFAULT_BREAK_ICON_PATH);
+    }
+    catch (std::invalid_argument &err){
+        qFatal(err.what());
+    }
+    //Attempt to load the basic preset file. If successful,
+    this->presets_loaded = this->loadPresetFile();
+    if(this->presets_loaded){
+        this->install_presets();
+    }
+}
+
+//Makes the presets accessible by creating preset actions. Also attempts to load the preset's icons from a file.
+void PresetManager::install_presets(){
+    //Go through the array of presets, and add an action to each of the lists for them.
+    for(QJsonArray::const_iterator i = this->presets->constBegin(); i != this->presets->constEnd(); i++){
+        if(i->isUndefined() || i->isNull() || !i->isObject()){
+            qDebug("%s %lli %s", "BUG: Preset at index", (std::distance(this->presets->constBegin(), i)), "was undefined/NULL/invalid.");
+            continue;
+        }
+        QJsonObject preset = i->toObject();
+        try{
+            QString preset_name = PresetManager::getJsonVal<QString>(preset["preset_name"]);
+            for(int i = 0; i < 6; i++)
+                this->preset_actions[i].append(new QAction(preset_name));
+        }
+        catch (json_value_error &err){
+            QString warning("Name at index ");
+            warning += QString::number(std::distance(this->presets->constBegin(), i));
+            warning += QString(" is/has ");
+            warning += QString(err.what());
+            qWarning("%s", warning.toStdString().c_str());
+            for(int i = 0; i < 6; i++)
+                this->preset_actions[i].append(nullptr);
+        }
+        this->load_preset_icons(&preset);
+    }
+}
+
+//Loads an image from a file and adds it to the icon manager if successful. Returns the new image on success, nullptr on failure.
+const QIcon* PresetManager::load_icon_file(const QString &filename, int urgency, bool returning){
+    if(!QFile(filename).exists())
+        qCritical("%s", (std::stringstream() << qPrintable(filename) << " could not be loaded. Is the filepath correct?").str().c_str());
+    else if(!QFileInfo(filename).isReadable())
+        throw std::invalid_argument(("Permission Denied when trying to read " + filename.toStdString() + "."));
+    QPixmap pm;
+    if(pm.load(filename)){
+        const QIcon ic(pm);
+        bool added = PresetManager::icon_varient_manager->add_icon(ic, filename, urgency);
+        return (returning && added) ? new const QIcon(ic) : nullptr; //Bad design, but I wrote myself into a corner.
+    }
+    else{
+        throw std::invalid_argument(("The file " + filename.toStdString() + " was an invalid image."));
+    }
+}
+
+//Helper function to get the preset paths from the preset file and put them into an array.
+QString* PresetManager::get_preset_icons(QJsonObject* preset) const {
+    try{
+        return PresetManager::getPresetStringArray(preset->value("icon_paths"), 4);
+    }
+    catch (json_value_error &err){
+        QString message("The preset '");
+        (preset->value("preset_name").isString()) ? message += PresetManager::getJsonVal<QString>(preset->value("preset_name")) : message += "<NAME UNDEFINED>";
+        message += "' is missing the 'icon_paths' field.";
+        qWarning(qPrintable(message));
+        return PresetManager::getPresetStringArray(PresetManager::DEFAULT_PRESET->value("icon_paths"));
+    }
+}
+
+//Takes 'icon_paths' from presets when present, and calls load_icon_file to install them into the icon manager.
+//Has increased urgency for the default preset.
+void PresetManager::load_preset_icons(QJsonObject* preset){
+    QString* icon_files = this->get_preset_icons(preset);
+    for(int i = 0; i < 4; i++){
+        try{
+            (preset == this->default_preset) ? this->load_icon_file(icon_files[i], i) : this->load_icon_file(icon_files[i]);
+        }
+        catch (std::invalid_argument &err){
+            qCritical("%s", err.what());
+        }
+    }
+}
+
 //Populate preset menu entry list.
 void PresetManager::populate_preset_menu_entries(QMenu *menus[6]){
     QAction* default_preset_load = new QAction("Default");
@@ -122,6 +193,7 @@ void PresetManager::populate_preset_menu_entries(QMenu *menus[6]){
     }
 }
 
+//Confirms a preset contains valid values.
 void PresetManager::validate_preset(const QJsonObject* preset){
     //First, make sure preset_name is present
     std::string preset_name;
@@ -134,11 +206,17 @@ void PresetManager::validate_preset(const QJsonObject* preset){
     QStringList keys = PresetManager::DEFAULT_PRESET->keys();
     QString missing;
     for(QStringList::const_iterator i = keys.cbegin(); i != keys.cend(); i++){
-        if(!preset->contains(*i))
-            if (missing.isEmpty())
-                missing += *i;
-            else
-                missing += ", " + *i;
+        if(!preset->contains(*i)){
+            if(*i != "icon_paths"){
+                if (missing.isEmpty())
+                    missing += *i;
+                else
+                    missing += ", " + *i;
+            }
+            else{
+                qWarning("%s", (std::stringstream() << "The icon_paths field is missing, will use default icons...").str().c_str());
+            }
+        }
         if (missing.isEmpty()){
             try{
                 if(*i == "len_study" || *i == "len_break_l" || *i == "len_break_s"){
@@ -154,7 +232,15 @@ void PresetManager::validate_preset(const QJsonObject* preset){
                         throw json_value_error("an invalid limit");
                 }
                 else if(*i == "notification_titles" || *i == "notification_messages")
-                    PresetManager::getPresetStringArray(preset->value(*i), true); //This function validates.
+                    PresetManager::getPresetStringArray(preset->value(*i), 6, true); //This function validates.
+                else if(*i == "icon_paths"){
+                    try{
+                        PresetManager::getPresetStringArray(preset->value(*i), 4, true); //This function validates.
+                    }
+                    catch (json_value_error &err){
+                        qWarning("%s", (std::stringstream() << "The icon_paths field is/has " << err.what() << "").str().c_str());
+                    }
+                }
                 else if(*i == "preset_name"){
                     if (preset_name.empty())
                         throw json_value_error("is missing.");
@@ -172,13 +258,13 @@ void PresetManager::validate_preset(const QJsonObject* preset){
     }
 }
 
-
+//Creates a copy of a preset after validation and returns a pointer to it.
 QJsonObject* PresetManager::CopyPreset(const QJsonObject* base){
     PresetManager::validate_preset(base);
     return new QJsonObject(*base);
 }
 
-
+//Makes sure the preset specified by the preset string exists, replacting the original preset on success.
 bool PresetManager::update_default_preset(QString preset){
     int index = this->findPreset(preset);
     if (index >= 0){
@@ -190,6 +276,7 @@ bool PresetManager::update_default_preset(QString preset){
     return false;
 }
 
+//Replaces the default preset with a copy of the one passed as an argument.
 bool PresetManager::update_default_preset(QJsonObject preset){
     if (!(preset.isEmpty())){
         delete this->default_preset;
@@ -198,6 +285,27 @@ bool PresetManager::update_default_preset(QJsonObject preset){
     }
     return false;
 }
+
+//preset_name = 0,3,5 set the study icon, 1 & 2 set the break icon. 4 Is the end of the cycle, and doesn't alter the icon.
+const QIcon* PresetManager::construct_tray_icon(int status, QString icon_name, int percent_complete){
+    if(!icon_name.isEmpty()){
+        try{
+            return this->icon_varient_manager->get_icon(icon_name, percent_complete);
+        }
+        catch (preset_error &err){
+            qCritical("%s", (std::stringstream() << "Error loading icon: " << err.what()).str().c_str());
+            return this->construct_tray_icon(status, PresetManager::getJsonVal<QString>(DEFAULT_PRESET->value("icon_paths")[status]), percent_complete);
+        }
+        catch (json_value_error &err){
+            qCritical("%s", (std::stringstream() << "Error loading icon: " << err.what()).str().c_str());
+            return this->construct_tray_icon(status, PresetManager::getJsonVal<QString>(DEFAULT_PRESET->value("icon_paths")[status]), percent_complete);
+        }
+    }
+    qWarning("Falling back to default icon...");
+    return this->construct_tray_icon(status, PresetManager::getJsonVal<QString>(DEFAULT_PRESET->value("icon_paths")[status]), percent_complete);
+}
+
+//Loads the default preset from the default preset file, returning false on a badly formatted file.
 bool PresetManager::loadDefaultPresetFile(){
     try{
         qDebug("%s", (std::stringstream() << "Loading default preset file at " << qPrintable(def_preset_path)).str().c_str());
@@ -223,17 +331,16 @@ bool PresetManager::loadPresetFile(){
     return true;
 }
 
+//Grabs the user preset file path.
 const QString PresetManager::getPresetFilePath(){
     return this->preset_file_path;
-} //Grabs the preset path.
+}
+//Grabs the default preset path.
 const QString PresetManager::getDefPresetPath(){
     return this->def_preset_path;
 }
-/*
-const QString PresetManager::getPresetPath(){
-    return this->preset_path;
-}
-*/
+
+//Gets the length of a cycle segment in ms.
 int PresetManager::getSegmentLength(const QJsonValue arr){
     if(arr.isUndefined())
         throw (json_value_error("undefined"));
@@ -243,25 +350,27 @@ int PresetManager::getSegmentLength(const QJsonValue arr){
     int final = 0;
     switch(unit){
     case 2:
-        val *= 60; //hr->min
+        val *= 3600; //hr->min (* 60);min->sec (* 60)
+        break;
     case 1:
-        val *= 60; //min->s
+        val *= 60; //min->s;s->ms
+        break;
     case 0:
-        final = static_cast<int>(val) * 1000; //s->ms.
         break;
     default:
         throw(json_value_error("a value out of unit range " + std::to_string(unit)));
     }
+    final = static_cast<int>(val) * 1000; //sec->ms (*1000) [double->int]
     return final;
 }
 
 //Gets an array of QStrings from a QJsonObject.
 //Parse and confirm all values are good before returning the pointer.
-QString* PresetManager::getPresetStringArray(const QJsonValue val, bool no_return){
-    QString * arr = new QString[6];
+QString* PresetManager::getPresetStringArray(const QJsonValue val, int correct_size, bool no_return){
+    QString * arr = new QString[correct_size];
     try{
         QJsonArray j_arr = PresetManager::getJsonVal<QJsonArray>(val);
-        if (j_arr.size() != 6)
+        if (j_arr.size() != correct_size)
             throw json_value_error("bad size " + std::to_string(j_arr.size()));
         int pass = 0;
         for(QJsonArray::const_iterator i = j_arr.cbegin(); i != j_arr.cend(); i++){
@@ -279,11 +388,13 @@ QString* PresetManager::getPresetStringArray(const QJsonValue val, bool no_retur
     }
 }
 
+//Loads the default preset into the timer via the presetLoaded signal.
 bool PresetManager::load_default_preset(){
-    emit this->presetLoaded(this->getDefaultPreset());
+    emit this->presetLoaded(*(this->getDefaultPreset()));
     return true;
 }
 
+//Reads the default preset from the default preset file after confirming its existence.
 QJsonObject* PresetManager::readDefaultPresetFile(){
     QJsonDocument presets;
     QFile infile(this->getDefPresetPath());
@@ -302,6 +413,7 @@ QJsonObject* PresetManager::readDefaultPresetFile(){
     return new QJsonObject(presets.object());
 }
 
+//Reads the non-default preset file after confirming its existence.
 QJsonArray* PresetManager::readPresetFile(){
     QJsonDocument presets;
     QFile infile(this->getPresetFilePath());
@@ -320,6 +432,7 @@ QJsonArray* PresetManager::readPresetFile(){
     return new QJsonArray(presets.array());
 }
 
+//Writes the default preset to the default preset file.
 bool PresetManager::writeDefaultPresetFile(){
     QJsonDocument presets;
     presets.setObject(*(this->getDefaultPreset()));
@@ -337,6 +450,7 @@ bool PresetManager::writeDefaultPresetFile(){
         return false;
 }
 
+//Writes user presets to the preset file.
 bool PresetManager::writePresetFile(){
     QJsonDocument presets;
     presets.setArray(*(this->presets));

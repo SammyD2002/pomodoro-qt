@@ -4,12 +4,13 @@
  */
 #include "log_handler.h"
 log_handler* log_handler::instance = nullptr;
-const QString log_handler::log_fmt = QString("(%{time process})%{if-critical}<[%{type}]>%{endif}") +
-                                            QString("%{if-fatal}<[*%{type}*]>%{endif}") +
-                                            QString("%{if-warning}<%{type}>%{endif}") +
-                                            QString("%{if-info}[%{type}]%{endif}") +
-                                            QString("%{if-debug}{%{type}}%{endif}") +
-                                            QString(" - %{function}: %{message}");
+#ifdef QT_NO_DEBUG
+    const QString log_handler::log_fmt = QStringLiteral("(%{time process})%{if-critical}<[%{type}]>%{endif}%{if-fatal}<[*%{type}*]>%{endif}%{if-warning}<%{type}>%{endif}%{if-info}[%{type}]%{endif}%{if-debug}{%{type}}%{endif}: %{message}");
+#else
+    const QString log_handler::log_fmt = QStringLiteral("(%{time process})%{if-critical}<[%{type}]>%{endif}%{if-fatal}<[*%{type}*]>%{endif}%{if-warning}<%{type}>%{endif}%{if-info}[%{type}]%{endif}%{if-debug}{%{type}}%{endif} - %{function}: %{message}");
+#endif
+
+
 void log_handler::setup(ofstream *log_file, bool to_stdout, QObject *parent){
     if(log_handler::instance == nullptr){
         log_handler::instance = new log_handler(log_file, to_stdout, parent);
@@ -62,7 +63,10 @@ void log_handler::disconnect_worker(log_worker * worker){
 }
 
 void log_handler::stop(){
-    delete log_handler::instance;
+    if (log_handler::instance != nullptr){
+        delete log_handler::instance;
+        log_handler::instance = nullptr;
+    }
 }
 
 log_handler::~log_handler(){
@@ -88,6 +92,7 @@ log_handler::log_handler(ofstream* log_file, bool to_stdout, QObject* parent) : 
     else
         this->log_file = nullptr;
 }
+
 log_worker* log_handler::setup_worker(ostream *out){
     log_worker *worker = new log_worker(out, &cout_log_thread);
     worker->moveToThread(&cout_log_thread);

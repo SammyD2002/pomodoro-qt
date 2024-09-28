@@ -144,7 +144,7 @@ protected:
     void set_box_selection(QString icon, QComboBox* menu);
     void update_icons();
 private slots:
-    void retrieve_help();
+    virtual void retrieve_help();
     void load_new_image();
 };
 
@@ -175,7 +175,7 @@ protected:
     QString init_message_inputs[6];
     QPushButton* help;
 protected slots:
-    void retrieve_help();
+    virtual void retrieve_help();
 private slots:
     void edit_body();
 };

@@ -66,9 +66,15 @@ bool help_browser::setup_help(){
 bool help_browser::cache_documentation(QString cache_dir){
     //Create QDir object to allow for path creation.
     QDir dir_manager("");
-    return (dir_manager.mkpath(cache_dir + "/doc")) &&
-           (QFile::exists(cache_dir + "/doc/doc.qhc") || QFile::copy(":doc.qhc", QString(cache_dir + "/doc/doc.qhc"))) &&
-           (QFile::exists(cache_dir + "/doc/doc.qch") || QFile::copy(":doc.qch", QString(cache_dir + "/doc/doc.qch")));
+    bool dir_made = dir_manager.mkpath(cache_dir + "/doc");
+    if (!dir_made)
+        return false;
+    if (QFile::exists(cache_dir + "/doc/doc.qhc") && !QFile::remove(cache_dir + "/doc/doc.qhc"))
+        return false;
+    if (QFile::exists(cache_dir + "/doc/doc.qch") && !QFile::remove(cache_dir + "/doc/doc.qch"))
+        return false;
+    return (QFile::copy(":doc.qhc", QString(cache_dir + "/doc/doc.qhc")) &&
+        QFile::copy(":doc.qch", QString(cache_dir + "/doc/doc.qch")));
 }
 
 //Load file from QUrl, or default index if url passed = NULL.

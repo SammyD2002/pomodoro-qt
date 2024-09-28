@@ -29,7 +29,9 @@ SOURCES += \
     preset_list.cpp \
     preset_manager.cpp \
     segment_editor.cpp \
-    timerconfig.cpp
+    timerconfig.cpp \
+    todo_item.cpp \
+    todo_list.cpp
 
 HEADERS += \
     help_browser.h \
@@ -41,6 +43,7 @@ HEADERS += \
     preset_icon_manager.h \
     preset_manager.h \
     timerconfig.h \
+    todo_list.h \
     widgets.h
 
 FORMS += \
@@ -53,6 +56,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES += \
     TODO.md \
+    CREDITS.md \
     doc_html/doc.qhcp \
     doc_html/doc.qhp \
     doc_html/help.qch \

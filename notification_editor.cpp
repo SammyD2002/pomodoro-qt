@@ -30,13 +30,13 @@ NotificationEditor::NotificationEditor(TimerConfig *parent) : QWidget(parent){
     this->layout->addWidget(this->title_inputs[1], 2, 1, 1, 3);
 
     //Break Complete
-    this->labels[2] = new QLabel(QStringLiteral("Break Completed"));
+    this->labels[2] = new QLabel(QStringLiteral("Cycle Completed"));
     this->title_inputs[2] = new QLineEdit();
     this->layout->addWidget(this->labels[2], 3, 0);
     this->layout->addWidget(this->title_inputs[2], 3, 1, 1, 3);
 
     //Pomodoro Cycle Complete
-    this->labels[3] = new QLabel(QStringLiteral("Cycle Completed"));
+    this->labels[3] = new QLabel(QStringLiteral("Break Completed"));
     this->title_inputs[3] = new QLineEdit();
     this->layout->addWidget(this->labels[3], 4, 0);
     this->layout->addWidget(this->title_inputs[3], 4, 1, 1, 3);

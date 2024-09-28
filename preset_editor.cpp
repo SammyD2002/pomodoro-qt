@@ -35,7 +35,11 @@ PresetEditor::PresetEditor(PomodoroTimer* timer, QJsonObject* preset, PresetMana
     if(this->original_preset != nullptr){
         this->s_edit->setPlaceholders(this->original_preset);
         this->title_edit->setPlaceholders(this->original_preset);
-        this->preset_name_title->setText(PresetManager::getJsonVal<QString>(this->original_preset->value(QStringLiteral("preset_name"))));
+        QString original_name = this->original_preset->value(QStringLiteral("preset_name")).toString("");
+        if(original_name.isEmpty())
+            this->preset_name_title->setText("New Preset");
+        else
+        this->preset_name_title->setText(original_name);
     }
     else{
         this->s_edit->setPlaceholders(timer); //Used as fallback if preset is somehow outside of list.
@@ -61,7 +65,7 @@ void SegmentEditor::setPlaceholders(const QJsonObject *preset){
         preset_name = (PresetManager::getJsonVal<QString>(preset->value("preset_name"))).toStdString();
     }
     catch (PresetManager::json_value_error &ex){
-        throw PresetManager::preset_error();
+        throw PresetManager::preset_error("?", ex);
     }
     try{
         this->m_cycle_enabled->setChecked(!PresetManager::getJsonVal<bool>(preset->value("cycle_lim_enabled")));
@@ -177,10 +181,14 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
     check = !check;
     QString preset;
     QString original_name = (*(this->original_preset))["preset_name"].toString();
-    if(this->preset_name_title->text().trimmed().isEmpty())
+    if(this->preset_name_title->text().trimmed().isEmpty()){
+        if(original_name.isEmpty())
+            return false;
         preset = original_name;
-    else
+    }
+    else{
         preset = this->preset_name_title->text().trimmed();
+    }
     qDebug("%s", QString(QString("Applying edits to preset ") + preset).toStdString().c_str());
     int * units = new int[3];
     this->s_edit->get_units(units);
@@ -220,7 +228,14 @@ bool PresetEditor::apply_changes(double new_vals[5], QString (&new_titles)[6], Q
     //Update the timer preset
      //preset == enables overwriting a preset with the same name.
     bool ok;
-    if (!update_default){
+    if(original_name.isEmpty()){
+        ok = this->preset_manager->create_preset(new_preset);
+        if(!ok){
+            emit this->request_overwrite("Preset " + preset + " exists.", "Overwrite it?", ok);
+            ok = this->preset_manager->create_preset(new_preset, ok);
+        }
+    }
+    else if (!update_default){
         ok = this->preset_manager->update_preset(original_name, new_preset, preset == original_name);
         if(!ok){
             emit this->request_overwrite("Preset " + preset + " exists.", "Overwrite it?", ok);

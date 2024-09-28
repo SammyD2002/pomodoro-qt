@@ -38,12 +38,16 @@ class PresetSegmentEditor : public SegmentEditor{
 public:
     PresetSegmentEditor(TimerConfig* parent) : SegmentEditor(parent) {}
     virtual bool convert() const override {return false;} //Stops inputted time values from being converted to ms.
+protected:
+    void retrieve_help(){help_browser::load_help(QStringLiteral("PresetEditor"));}
 };
 
 class PresetNotificationEditor : public NotificationEditor{
     Q_OBJECT
 public:
     PresetNotificationEditor(TimerConfig* parent) : NotificationEditor(parent) {}
+protected:
+    void retrieve_help(){help_browser::load_help(QStringLiteral("PresetEditor"));}
 };
 
 #endif // PRESET_EDITOR_H

@@ -7,6 +7,7 @@
 //Class must be derived from qobject for some reason.
 #include "widgets.h"
 #include "preset_manager.h"
+#include "todo_list.h"
 class QTimer;
 class QDateTime;
 class PomodoroTimer : public QWidget

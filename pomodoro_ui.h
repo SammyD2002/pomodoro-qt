@@ -9,6 +9,7 @@
 #include "help_browser.h"
 #include "timerconfig.h"
 #include "preset_editor.h"
+#include "todo_list.h"
 class QActionGroup;
 class QMenuBar;
 class QGridLayout;

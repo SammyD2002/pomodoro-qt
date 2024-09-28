@@ -6,6 +6,8 @@
 #include "pomodoro_ui.h"
 //#include "ui_pomodoro_ui.h"
 PomodoroUI::PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_preset, QWidget *parent): QWidget(parent){
+    //Set the window title
+    this->setWindowTitle("Pomodoro Status");
 //Timer Setup
     //Event loops
     //this->main_timer = new QTimer(this);
@@ -75,6 +77,8 @@ PomodoroUI::PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_pres
     windowMenu->addAction(this->tray_menu_items->at(5)); //Exit
     this->top_bar->setNativeMenuBar(true);
     this->layout->setMenuBar(this->top_bar);
+    //Add the task manager.
+    this->layout->addWidget(todo_list::get_todo_list(), 3, 0, 3, -1);
 //Signal and Slot Connections
     //Setup connections activated when the timer is started/stopped.
     connect(this->toggle, SIGNAL (clicked()), this, SLOT (toggle_pressed()));
@@ -82,6 +86,7 @@ PomodoroUI::PomodoroUI(PresetManager* preset_manager, QJsonObject* starting_pres
     //Add connections activated when the event loop or the main timer expires.
     connect(loop_timer, &QTimer::timeout, this, &PomodoroUI::update_timer_display);
     connect(this->cycle, SIGNAL (segment_changed(int)), this, SLOT (update_segment(int)));
+    connect(this->cycle, SIGNAL (segment_changed(int)), todo_list::get_todo_list(), SLOT (pomodoro_complete(int)));
     if (notify){ //Only connect these sockets if notifications are enabled. After segment_changed for ordering purposes.
         connect(cycle, &PomodoroTimer::segment_changed, this, &PomodoroUI::notify_session);
     }
@@ -323,7 +328,7 @@ void PomodoroUI::settings_to_preset(QAction * entry){
         curr_settings = new QJsonObject(*PresetManager::DEFAULT_PRESET);
     else
         curr_settings = this->preset_manager->getPreset(entry->text());
-    curr_settings->insert(QStringLiteral("preset_name"), QStringLiteral("New Preset"));
+    curr_settings->insert(QStringLiteral("preset_name"), QStringLiteral(""));
     try{
         PresetEditor* editor = new PresetEditor(this->cycle, curr_settings, this->preset_manager, this);
         connect(editor, &PresetEditor::request_overwrite, this, &PomodoroUI::prompt_confirmation);

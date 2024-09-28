@@ -322,6 +322,34 @@ int PomodoroTimer::getStatus() const{
      */
 QString PomodoroTimer::constructOutput(QString template_string) const{
     QString return_string(template_string); //Setup the copy of the template string.
+    if(template_string.contains("<task_name>")){
+        QJsonObject c_task(todo_list::get_todo_list()->get_task_info(0));
+        if(!c_task.isEmpty()){
+            return_string = return_string.replace("<task_name>", c_task.value("title").toString(""));
+        }
+    }
+    if(template_string.contains("<task_desc>")){
+        QJsonObject c_task(todo_list::get_todo_list()->get_task_info(0));
+        if(!c_task.isEmpty()){
+            return_string = return_string.replace("<task_desc>", c_task.value("description").toString(""));
+        }
+    }
+    if(template_string.contains("<task_pomodoros>")){
+        QJsonObject c_task(todo_list::get_todo_list()->get_task_info(0));
+        if(!c_task.isEmpty()){
+            int n = c_task.value("description").toInt(-2);
+            if(n < 0)
+                return_string = return_string.replace("<task_pomodoros>", "∞");
+            else
+                return_string = return_string.replace("<task_pomodoros>", QString::number(n));
+        }
+    }
+
+    //First replace the preset and task names to (in theory) make use of later replacements.
+
+
+    return_string = return_string.replace("<preset>",
+        PresetManager::getJsonVal<QString>((*this->currentPreset)["preset_name"]), Qt::CaseInsensitive);
     //Replace all occurences of current & maximum pomodoros/cycles.
     return_string = return_string.replace("<current_pomodoro>", QString(this->get_c_pom_str()), Qt::CaseInsensitive);
     return_string = return_string.replace("<pomodoros_per_cycle>", QString(this->get_m_pom_str()), Qt::CaseInsensitive);
@@ -334,8 +362,7 @@ QString PomodoroTimer::constructOutput(QString template_string) const{
     double study = static_cast<double>(this->get_len_study_int());
     double break_s = static_cast<double>(this->get_len_break_s_int());
     double break_l = static_cast<double>(this->get_len_break_l_int());
-    return_string = return_string.replace("<preset>",
-        PresetManager::getJsonVal<QString>((*this->currentPreset)["preset_name"]), Qt::CaseInsensitive);
+    //Segment Lengths
     return_string = return_string.replace("<len_study/s>", QString::number(study / 1000.0), Qt::CaseInsensitive);
     return_string = return_string.replace("<len_study/m>", QString::number(study / 60000.0), Qt::CaseInsensitive);
     return_string = return_string.replace("<len_study/h>", QString::number(study / 360000.0), Qt::CaseInsensitive);

@@ -98,7 +98,7 @@ bool PresetManager::update_preset(QString old, QJsonObject preset, int index, bo
     if(!overwrite && index >= 0 && old_i != index){
         return false;
     }
-    else{
+    else{        
         this->presets->replace(old_i, preset); //TODO: update menu entries to the new_name.
         this->update_menu_labels(old_i, preset["preset_name"].toString());
         //emit this->preset_removed(preset_load_actions[old_i], preset_delete_actions[old_i], preset_edit_actions[old_i], preset_rename_actions[old_i], preset_new_default_actions[old_i]);

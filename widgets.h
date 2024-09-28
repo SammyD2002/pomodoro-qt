@@ -46,5 +46,6 @@
 #include <QStandardPaths>
 #include <QMap>
 #include <QFileDialog>
-
+#include <QStackedWidget>
+#include <QListWidget>
 #endif // WIDGETS_H

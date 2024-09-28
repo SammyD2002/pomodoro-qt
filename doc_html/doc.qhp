@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<QtHelpProject version="0.3.0">
-    <namespace>fincher.local.pomodoro.0.3.0</namespace>
+<QtHelpProject version="1.0">
+    <namespace>fincher.local.pomodoro.0.9.0</namespace>
     <virtualFolder>doc</virtualFolder>
-    <customFilter name="Pomodoro-Qt 0.3.0">
+    <customFilter name="Pomodoro-Qt 0.9.0">
         <filterAttribute>Pomodoro-Qt</filterAttribute>
-        <filterAttribute>0.3.0</filterAttribute>
+        <filterAttribute>0.9.0</filterAttribute>
     </customFilter>
     <filterSection>
         <filterAttribute>Pomodoro-Qt</filterAttribute>
-        <filterAttribute>0.3.0</filterAttribute>
+        <filterAttribute>0.9.0</filterAttribute>
         <toc>
             <section title="Pomodoro-Qt" ref="index.html">
                 <section title="Configuring The Timer" ref="index.html#2.%20Configuring%20the%20Timer">
                     <section title="Configurable Settings" ref="index.html#Segment%20Editor"/>
                     <section title="Notification Syntax" ref="index.html#Notification%20Editor%20Syntax"/>
-            	</section>
+                </section>
             </section>
         </toc>
         <keywords>
             <keyword id="Pomodoro::PomodoroUI" ref="index.html"/>
             <keyword id="Pomodoro::SegmentEditor" ref="index.html#Segment%20Editor"/>
             <keyword id="Pomodoro::NotificationEditor" ref="index.html#Notification%20Editor%20Syntax"/>
+            <keyword id="Pomodoro::PresetEditor" ref="index.html#3.%20Timer%20Presets"/>
         </keywords>
         <files>
             <file>style.css</file>

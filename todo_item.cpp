@@ -51,6 +51,18 @@ todo_item::todo_item(QJsonObject task, QWidget* parent) : todo_item(parent) {
     this->construct_elapsed_label();
 }
 
+todo_item::todo_item(todo_item &base) : todo_item(base.parentWidget()){
+    this->title = base.title;
+    bool auto_stop = base.p_rem_switch->isChecked();
+    this->p_rem_switch->setChecked(auto_stop);
+    if(auto_stop)
+        this->p_rem_entry->setText(base.p_rem_entry->text());
+    this->desc->setText(base.desc->toPlainText());
+    this->pomodoros_elapsed = base.pomodoros_elapsed;
+    this->construct_elapsed_label();
+}
+
+
 bool todo_item::pomodoro_complete(){
     if(this->title.isEmpty())
         return false;

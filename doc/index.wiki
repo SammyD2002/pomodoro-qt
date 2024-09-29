@@ -1,27 +1,92 @@
-= 1. The Pomodoro Timer =
-	
+= 1. The Pomodoro Method =
+== What is the Pomodoro Method? ==
+* The Pomodoro Method is a way to structure work time.
+ - It involves structuring time into pomodoros, where you work for a fixed amount of time before taking a short, < 5 minute break.
+ - After completing a certain number of pomodoros, you take a longer break to allow your mind to relax before continuing work.
+* It was created by Francesco Cirillo in the late 1980's using a tomato kitchen timer.
+* For more information, visit https://www.pomodorotechnique.com/
+== Using the Pomodoro Method ==
+* Before starting the pomodoro, decide on a task to focus on.
+* During the study segment, give the task your undivided attention.
+ - Try to avoid interruptions unless urgent. If it is urgent but doesn't need immediate attention, write it down and do it during the next pomodoro.
+   - If it does need immediate attention, skip to the end of the study segment, and take your short break if possible before starting it in the next pomodoro.
+* During the short breaks between study segments, step away from the work and do something to give your brain a break from the main task.
+ - For example, you could use the time to walk around, get water and/or coffee, or just to stand up and stretch.
+* During the longer breaks, do something simple or relaxing to let your brain rest.
+ - For example, you could use the time to take a longer walk, tidy up your workspace, or to read part of a book.
+* For more information, visit the source of these tips: https://guides.libraries.emory.edu/c.php?g=1365627&p=10088719
 
+= 2. Using the Application =
+* When started, the application will appear in the system tray.
+ - The icon will be updated when moving between segments and as each segment progresses.
+ - Hovering over the icon will give the current segment and its remaining time, as well as the current pomodoro and cycle.
+ - Right-clicking on the icon will bring up a menu allowing you to quickly
+	- pause or unpause the timer
+	- Skip or restart a segment
+	- Reset the entire session
+	- Load a preset
+	- Exit the application.
+ - Left-Clicking on it will show the main application window
+* The main window displays a pause button alongside the timer's state.
+ - It also contains several menus.
+  - Timer Menu: Allows the user to pause or unpause the timer, skip the current pomodoro, or edit the timer's configuration.
+	- Preset Menu: Allows for creating, loading, renaming, removing, editing, or setting a preset as the default configuration.
+	- Window: Lets the user hide the main window, open this help, or exit the application.
 
 = 2. Configuring the Timer =
+* The timer's segments and notifications can be reconfigured by going to Timer->Edit Timer.. in the main window.
 == Segment Editor ==
-	* Each portion of the timer can be edited here, including...
-		1. The Length of the Study and both Break Segments
-		2. The number of pomodoros to a cycle
-		3. How many cycles to do before stopping the timer.
-			- The timer can also be configured to run indefinitly.
-		4. The title and contents of notifications sent when changing to a new segment.
-	* Updated segment lengths will not be applied until the next time that segment is started.
+* Each portion of the timer can be edited here, including...
+ 1. The Length of the Study and both Break Segments
+ 2. The number of pomodoros to a cycle
+ 3. How many cycles to do before stopping the timer.
+  - The timer can also be configured to run indefinitly.
+ 4. The title and contents of notifications sent when changing to a new segment.
+* Updated segment lengths will not be applied until the next time that segment is started.
 
 == Notification Editor Syntax ==
-	* The following text, when inserted into the title or body of a notification, will be replaced by the values noted below in the actual notification text.
-	  - NOTE: For the segment lengths, /(letter) denotes the unit of time that the number will be displayed in.
-	    - The brackets denote that this is optional, and the length will be displayed in minutes without it.
-		1. Current Pomodoro Rep: <current_pomodoro>
-		2. Pomodoros per Cycle: <pomodoros_per_cycle>
-		3. Current Cycle: <current_cycle>
-		4. Cycles per Session: <cycles_per_session>
-		  - If the cycle limit is disabled, '∞' will be displayed.
-		5. Length of Study Segment: <len_study[/s,/m,/h]>
-		6. Length of Short Break: <len_break_s[/s,/m,/h]>
-		7. Length of Longer Break: <len_break_l[/s,/m,/h]>
+* The following text, when inserted into the title or body of a notification, will be replaced by the values noted below in the actual notification text.
+ - NOTE: For the segment lengths, /(letter) denotes the unit of time that the number will be displayed in.
+  - The brackets denote that this is optional, and the length will be displayed in minutes without it.
+ 1. Current Pomodoro Rep: <current_pomodoro>
+ 2. Pomodoros per Cycle: <pomodoros_per_cycle>
+ 3. Current Cycle: <current_cycle>
+ 4. Cycles per Session: <cycles_per_session>
+  - If the cycle limit is disabled, '∞' will be displayed.
+ 5. Length of Study Segment: <len_study[/s,/m,/h]>
+ 6. Length of Short Break: <len_break_s[/s,/m,/h]>
+ 7. Length of Longer Break: <len_break_l[/s,/m,/h]>
 
+= 3. Timer Presets =
+* A custom timer configuration can be saved to a preset which can be loaded for later use.
+== Preset Management ==
+ - Each preset must have a unique name. 
+  - If trying to duplicate a name, a prompt is displayed to overwrite it or cancel the operation.
+ - Presets can be made based on the timer's current settings, any other preset, or from scratch with factory default settings.
+ - A Preset can be copied to the default preset, but any changes made to one will not be reflected in the other.
+* The users presets are stored in the programs configuration folder.
+ - On Windows, this is "C:/Users/<USER>/AppData/Local/<APPNAME>"
+ - On MacOS, this is "~/Library/Preferences/<APPNAME>"
+ - On Linux, this is "~/.config/<APPNAME>"
+ - The default preset is stored in default.json, and the other presets are stored in presets.json.
+
+= Credits =
+== Pomodoro Method Information Sources ==
+* Pomodoro Method
+ - Created by Francesco Cirillo
+ - Website: https://www.pomodorotechnique.com/
+* Pomodoro Method Tips
+ - Source: Wellness Resources from MacMillan Law Library 
+ - Website: https://guides.libraries.emory.edu/c.php?g=1365627&p=10088719
+
+== Icons ==
+* Breaktime Icon: SammyD92002
+* Studying Icon: [[https://www.vecteezy.com/free-vector/book-icon|Book Icon Vectors by Vecteezy]] 
+
+== References ==
+* Help Browser: The qt6 contextsensitivehelp example was heavily referenced, and the overridden loadResource function was directly sourced from it.
+ - [[https://code.qt.io/cgit/qt/qttools.git/tree/examples/help/contextsensitivehelp?h=6.7|contextsensitivehelp]] 
+* The Main qt6 Documentation was also heavily referenced, and is available [[https://doc.qt.io/qt-6/|here]]
+
+== External Libraries ==
+* [[https://github.com/qt|Qt Framework]] - Version Used: 6.7.2

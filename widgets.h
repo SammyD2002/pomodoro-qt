@@ -48,4 +48,5 @@
 #include <QFileDialog>
 #include <QStackedWidget>
 #include <QListWidget>
+#include <QTextBlock>
 #endif // WIDGETS_H

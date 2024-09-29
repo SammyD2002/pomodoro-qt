@@ -30,6 +30,7 @@ SOURCES += \
     preset_manager.cpp \
     segment_editor.cpp \
     timerconfig.cpp \
+    todo_history.cpp \
     todo_item.cpp \
     todo_list.cpp
 

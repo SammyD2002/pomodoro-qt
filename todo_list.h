@@ -121,6 +121,7 @@ private:
     QLabel task_duration = QLabel("Task Duration: ");
     //Store the completion dates as a string here.
     QMap<QListWidgetItem*, qint64> completion_dates;
+    bool file_loaded;
 private slots:
     void task_completed(todo_item *task);
     void item_changed(int row);
